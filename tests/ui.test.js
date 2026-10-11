@@ -89,6 +89,17 @@ test('число кальянов: от одного до шести, у зап�
   assert.ok(html.indexOf('class="logged"') < html.indexOf('class="opts"')); // записанное стоит над вариантами
 });
 
+test('игры: режим выбирается при отметке и правится у записи', () => {
+  const html = UI.logSheet(model({}), { day: '2026-10-04', who: 0 }); // у Елисея в этот день игры
+  assert.equal(html.split('data-act="log-bad"').length - 1, 2);
+  assert.equal(html.split('data-act="set-bad"').length - 1, 2);
+  assert.match(html, /data-act="log-bad" data-bad="0"[^>]*>нормально</);
+  // выбрано «плохо»: под играми видно, что это нарушение полегче
+  const bad = UI.logSheet(model({}), { day: TODAY, who: 0, bad: true });
+  assert.match(bad, /aria-pressed="true" data-act="log-bad" data-bad="1"/);
+  assert.match(bad, /плохой режим[^<]*полштрафа/);
+});
+
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);

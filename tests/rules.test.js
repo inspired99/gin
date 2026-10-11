@@ -27,9 +27,9 @@ function make({ settings = {}, events = [], plans = [] } = {}) {
     events: {},
     plan: {},
   };
-  for (const [who, kind, d] of events) {
+  for (const [who, kind, d, extra] of events) {
     const id = `e${++seq}`;
-    state.events[id] = { id, who, kind, day: d, at: seq };
+    state.events[id] = { id, who, kind, day: d, at: seq, ...(extra || {}) };
   }
   for (const [who, kind, d, madeOn, extra] of plans) {
     const id = `${d}_${who}_${kind}`;
@@ -64,30 +64,13 @@ test('до первой недели недель нет', () => {
   assert.deepEqual(timeline(make(), '2026-10-10'), []);
 });
 
-test('пустая первая неделя: у каждого свой джинн на 7, два бриллианта, лимит 4 и 2', () => {
+test('пустая первая неделя: два бриллианта, лимит 4 и 2', () => {
   const [wk] = timeline(make(), day(2));
   assert.equal(wk.index, 1);
   assert.deepEqual(wk.limit, [4, 4]);
   assert.deepEqual(wk.clubLimit, [2, 2]);
-  assert.equal(wk.hpMax, 7);
-  assert.deepEqual(wk.hp, [7, 7]);
   assert.deepEqual(wk.gems, [2, 2]);
   assert.deepEqual(wk.hearts[0], { max: 4, used: 0, left: 4 });
-});
-
-test('числа берутся из настроек: здоровье джинна, удары, лечение', () => {
-  const state = make({
-    settings: { hpMax: 10, hitGym: 3, hitCowork: 2, foulHeal: 5 },
-    events: [
-      [0, 'gym', day(0)],
-      [0, 'cowork', day(1)],
-      [1, 'hookah', day(1)],
-    ],
-  });
-  const [wk] = timeline(state, day(2));
-  assert.equal(wk.hpMax, 10);
-  assert.deepEqual(wk.damage, [5, 0]);
-  assert.deepEqual(wk.hp, [5, 15]);
 });
 
 test('первую неделю можно перенести в настройках', () => {
@@ -106,16 +89,13 @@ test('кальян по плану в пределах лимита не нар�
   assert.equal(wk.fouls.length, 0);
   assert.equal(wk.hearts[0].left, 3);
   assert.equal(wk.hearts[1].left, 4);
-  assert.deepEqual(wk.hp, [7, 7]);
 });
 
-test('кальян без плана: нарушение, свой джинн лечится на 3, чужой не трогается', () => {
+test('кальян без плана: нарушение', () => {
   const state = make({ events: [[0, 'hookah', day(1)]] });
   const [wk] = timeline(state, day(1));
   assert.equal(wk.fouls.length, 1);
   assert.deepEqual(wk.fouls[0].reasons, ['unplanned']);
-  assert.deepEqual(wk.hp, [10, 7]);
-  assert.deepEqual(wk.heal, [3, 0]);
   assert.deepEqual(wk.gems, [2, 2]); // кальян вне плана, но в лимите
 });
 
@@ -164,7 +144,7 @@ test('срыв в день тренировки это обычное наруш
   assert.equal(foul.cost, 1);
 });
 
-test('бассейн это тоже спорт: бьет джинна, делает день чистым, идет в счет тренировок', () => {
+test('бассейн это тоже спорт: делает день чистым, идет в счет тренировок', () => {
   const state = make({
     events: [
       [0, 'pool', day(0)],
@@ -180,7 +160,6 @@ test('бассейн это тоже спорт: бьет джинна, дела
   });
   const weeks = timeline(state, day(2));
   const [wk] = weeks;
-  assert.equal(wk.damage[0], 4); // спорт и бассейн в один день считаются оба
   assert.equal(wk.counts.pool[0], 1);
   assert.deepEqual(wk.fouls.map((f) => [f.who, f.reasons.join('+')]), [
     [0, 'gymday'],
@@ -263,6 +242,56 @@ test('клуб сверх лимита: нарушение', () => {
   assert.equal(wk.tokens[1].left, 0);
 });
 
+test('игры в плохом режиме: легкое нарушение, штраф набегает за каждые два', () => {
+  const bad = (d) => [0, 'club', day(d), { bad: true }];
+  const info = (state, today) => debtInfo(state, timeline(state, today), 0, today);
+
+  // одна плохая игра в пределах лимита: нарушение есть, штрафа еще нет
+  const one = make({ events: [bad(0)] });
+  let [wk] = timeline(one, day(1));
+  assert.equal(wk.fouls.length, 1);
+  assert.deepEqual(wk.fouls[0].reasons, ['bad']);
+  assert.equal(wk.fouls[0].light, true);
+  assert.deepEqual(wk.debt, [0, 0]);
+  assert.equal(info(one, day(1)).n, 0);
+  assert.equal(info(one, day(1)).due, null);
+
+  // вторая плохая игра: набежал целый штраф, срок считается от нее
+  const two = make({ events: [bad(0), bad(3)] });
+  assert.equal(timeline(two, day(3))[0].debt[0], 1);
+  assert.deepEqual(info(two, day(3)), { n: 1, since: day(3), due: day(5) });
+  const paid = make({ events: [bad(0), bad(3), [0, 'penalty', day(4)]] });
+  assert.equal(info(paid, day(4)).n, 0);
+
+  // нормальная игра в пределах лимита не нарушение
+  assert.equal(timeline(make({ events: [[0, 'club', day(0)]] }), day(1))[0].fouls.length, 0);
+
+  // сверх лимита и плохо сразу: одно легкое нарушение, а не два
+  const both = make({ events: [[0, 'club', day(0)], [0, 'club', day(1)], bad(2)] });
+  [wk] = timeline(both, day(3));
+  assert.equal(wk.fouls.length, 1);
+  assert.deepEqual(wk.fouls[0].reasons, ['over', 'bad']);
+  assert.equal(wk.debt[0], 0);
+
+  // игры не делают кальян дороже: первое нарушение с кальяном все равно один штраф
+  const mixed = make({ events: [bad(0), [0, 'hookah', day(1)]] });
+  [wk] = timeline(mixed, day(2));
+  assert.deepEqual(wk.fouls.map((f) => f.cost), [0, 1]);
+  assert.equal(wk.debt[0], 1);
+  assert.equal(info(mixed, day(2)).since, day(1));
+  // штраф отработан, полштрафа за игры ждет второй половины
+  assert.equal(info(make({ events: [bad(0), [0, 'hookah', day(1)], [0, 'penalty', day(2)]] }), day(2)).n, 0);
+
+  // число из настроек: штраф за каждое нарушение в играх
+  const strict = make({ settings: { gamesPerPenalty: 1 }, events: [bad(0)] });
+  [wk] = timeline(strict, day(1));
+  assert.equal(wk.debt[0], 1);
+
+  // до записи видно, чем кончится
+  assert.deepEqual(preview(make(), day(1), { who: 0, kind: 'club', day: day(1), bad: true }).foul.reasons, ['bad']);
+  assert.equal(preview(make(), day(1), { who: 0, kind: 'club', day: day(1) }).foul, null);
+});
+
 test('эскалация: второе нарушение за неделю стоит два штрафа, у каждого свой счет', () => {
   const state = make({
     events: [
@@ -298,37 +327,6 @@ test('штраф гасит долг, срок считается от само�
 
   const slow = make({ settings: { penaltyDays: 4 }, events });
   assert.equal(debtInfo(slow, timeline(slow, day(3)), 0, day(3)).due, day(7));
-});
-
-test('джинн: тренировка 2, коворкинг 1, не больше одного вида в день, каждому свое', () => {
-  const state = make({
-    events: [
-      [0, 'gym', day(0)],
-      [0, 'gym', day(0)],
-      [0, 'cowork', day(1)],
-      [0, 'cowork', day(1)],
-      [1, 'cowork', day(1)],
-    ],
-  });
-  const [wk] = timeline(state, day(2));
-  assert.deepEqual(wk.damage, [3, 1]);
-  assert.deepEqual(wk.hp, [4, 6]);
-});
-
-test('коворкинг с кальяном в тот же день по джинну не бьет', () => {
-  const state = make({
-    events: [
-      [0, 'cowork', day(1)],
-      [0, 'hookah', day(1)],
-    ],
-    plans: [[0, 'hookah', day(1)]],
-  });
-  assert.deepEqual(timeline(state, day(1))[0].damage, [0, 0]);
-});
-
-test('штрафная тренировка джинна не бьет', () => {
-  const state = make({ events: [[0, 'penalty', day(1)]] });
-  assert.deepEqual(timeline(state, day(1))[0].damage, [0, 0]);
 });
 
 test('бриллианты личные: от нуля до трех', () => {
@@ -515,8 +513,7 @@ test('дни без кальяна и достижения с целями из 
   assert.deepEqual(of('sport', 0), { id: 'sport', who: 0, have: 6, need: 10, got: false });
   assert.equal(of('cowork', 0).have, 2);
   assert.deepEqual(of('clean', 0), { id: 'clean', who: 0, have: 9, need: 7, got: true });
-  assert.equal(of('genie', 0).have, 2);
-  assert.equal(of('genie', 0).got, false);
+  assert.deepEqual(of('level', 0), { id: 'level', who: 0, have: 1, need: 3, got: false }); // две недели подряд с бриллиантами
   assert.equal(of('gems', 0).have, 2);
   assert.equal(of('gems', 1).have, 1);
   assert.equal(of('gems', 1).got, true);
@@ -533,9 +530,10 @@ test('возглас после отметки', () => {
   assert.equal(say(make(), { kind: 'gym', day: day(1) }), 'good');
   assert.equal(say(make(), { kind: 'cowork', day: day(1) }), 'good');
   assert.equal(say(make({ events: [[0, 'hookah', day(1)]] }), { kind: 'pool', day: day(1) }), 'late');
-  // третьей тренировкой и коворкингом джинн на 7 добит
+  // коворкингом набрана норма недели: спорта уже хватало
   const almost = make({ events: [[0, 'gym', day(0)], [0, 'gym', day(1)], [0, 'gym', day(2)]] });
-  assert.equal(say(almost, { kind: 'cowork', day: day(3) }), 'win');
+  assert.equal(say(almost, { kind: 'cowork', day: day(3) }), 'norm');
+  assert.equal(say(make({ events: [...perfect(0, 0)] }), { kind: 'gym', day: day(5) }), 'good'); // норма уже была
 
   const planned = make({ plans: [[0, 'hookah', day(1)], [0, 'hookah', day(8)]] });
   assert.equal(say(planned, { kind: 'hookah', day: day(1) }), 'hookah-ok');
@@ -552,6 +550,7 @@ test('возглас после отметки', () => {
   assert.equal(say(make(), { kind: 'club', day: day(1) }), 'club-ok');
   const clubs = make({ events: [0, 1, 2].map((d) => [0, 'club', day(d)]) });
   assert.equal(say(clubs, { kind: 'club', day: day(3) }), 'club-over');
+  assert.equal(say(make(), { kind: 'club', day: day(1), bad: true }), 'club-bad');
 
   const owes = make({ events: [[0, 'hookah', day(0)], [0, 'hookah', day(1)]] }); // долг 1 + 2
   assert.equal(say(owes, { kind: 'penalty', day: day(2) }), 'paid-part');

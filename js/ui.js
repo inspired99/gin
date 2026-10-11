@@ -14,7 +14,7 @@ const chevron = (dir) => svg('chev', dir === 'left' ? 'M10 3 5 8l5 5' : 'M6 3l5 
 const plus = svg('plus', 'M8 3v10M3 8h10');
 const minus = svg('minus', 'M3 8h10');
 
-const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'день спорта' };
+const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'день спорта', bad: 'плохой режим' };
 // сколько кальянов за вечер можно выбрать одним касанием
 const QTY = [1, 2, 3, 4, 5, 6];
 
@@ -73,10 +73,9 @@ function room(m, who) {
   const h = wk.hearts[who];
   const t = wk.tokens[who];
   const mood = m.moods[who];
-  const total = wk.hpMax + wk.heal[who];
-  const hp = wk.hp[who];
-  const state = hp === 0 ? 'down' : hp <= total / 3 ? 'hurt' : wk.heal[who] ? 'laugh' : 'up';
-  const segs = Array.from({ length: total }, (_, i) => `<i class="${i < hp ? 'on' : ''}"></i>`).join('');
+  // джинн это спутник: чем выше уровень персонажа, тем он крупнее
+  const lvl = m.levels[who];
+  const grow = (0.7 + 0.1 * Math.min(lvl, 6)).toFixed(1);
   const debt = m.debts[who];
   const due = debt.n ? (debt.due < m.today ? 'срок вышел' : C.byEndOf(debt.due)) : '';
   const debtChip = debt.n
@@ -84,7 +83,6 @@ function room(m, who) {
         aria-label="${name}: ${C.nPenalty(debt.n)} не отработано, ${due}. отметить">
         <span class="chip is-foul">${icon('penalty')}</span><span class="hand">${debt.n > 1 ? `×${debt.n} ` : ''}${due}</span></button>`
     : '';
-  const bossLabel = hp === 0 ? 'джинн побежден' : `джинн: здоровье ${hp} из ${total}`;
   // полезное за неделю: сколько раз был спорт, бассейн и коворкинг
   const good = ['gym', 'pool', 'cowork']
     .map((kind) => `<span class="good" title="${C.KIND[kind].name}">${icon(kind)}<b>${wk.counts[kind][who]}</b><span class="sr">${C.KIND[kind].name}</span></span>`)
@@ -92,18 +90,17 @@ function room(m, who) {
   const used = (x, note = '') => `<b class="${x.used > x.max ? 'is-over' : ''}">${x.used} из ${x.max}</b>${note}`;
   const period = wk.periodWeeks[who] > 1 ? '<span class="stat-note">на две недели</span>' : '';
   return `<section class="scene${who === m.me ? ' is-me' : ''}" aria-label="${name}">
-    <div class="room">
+    <div class="room" style="--genie: ${grow}">
       ${hero(who, mood, { size: 112, cls: `room-hero${mood === 'sleep' ? '' : ' bob'}`, label: `${name}: ${C.MOOD[mood]}` })}
-      ${genie(state, { size: 96, cls: `room-genie${state === 'down' ? '' : ' bob bob-slow'}`, label: bossLabel })}
+      ${genie('up', { size: 96, cls: 'room-genie bob bob-slow', label: `джинн, уровень ${lvl}` })}
     </div>
     <div class="stock">
-      <p class="who"><span class="who-name">${name}</span><span class="lvl" aria-label="уровень ${m.levels[who]}">lvl ${m.levels[who]}</span></p>
+      <p class="who"><span class="who-name">${name}</span><span class="lvl" aria-label="уровень ${lvl}">lvl ${lvl}</span></p>
       <dl class="stats">
         <div class="stat"><dt><span>полезное за неделю</span></dt><dd class="goods">${good}</dd></div>
         ${stat('hookah', 'кальян', used(h, period))}
         ${stat('club', 'игры', used(t))}
-        <div class="stat"><dt>${genie(state === 'down' ? 'down' : 'up', { size: 32 })}<span>джинн</span></dt>
-          <dd><span class="hp" role="img" aria-label="${bossLabel}">${segs}</span></dd></div>
+        ${wk.gems[who] == null ? '' : `<div class="stat"><dt>${gem(true)}<span>неделя</span></dt><dd>${gemsMark(m, wk, who)}</dd></div>`}
       </dl>
       ${debtChip}
     </div>
@@ -392,8 +389,8 @@ function rules(m) {
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
     </ol>
     <ul class="rule-list">
-      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Сверх лимита, вне плана или в день спорта. За каждое спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Второе за неделю стоит два штрафа, третье три.`)}
-      ${item(genie('up', { size: 48 }), 'джинн', `У каждого свой, здоровье ${s.hpMax}. Спорт и бассейн снимают по ${s.hitGym}, коворкинг без кальяна ${s.hitCowork}, каждое раз в день. Нарушение возвращает ${s.foulHeal}. Штрафное занятие не считается.`)}
+      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Кальян сверх лимита, вне плана или в день спорта. За каждое спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Второе за неделю стоит два штрафа, третье три.`)}
+      ${item(chip('club', 'is-foul', ''), 'игры', `При отметке выбираем режим: нормально или плохо. Плохо или сверх лимита это нарушение полегче: ${C.PENALTY_PART[s.gamesPerPenalty]}${s.gamesPerPenalty > 1 ? `, то есть один штраф за каждые ${s.gamesPerPenalty} таких` : ''}.`)}
     </ul>
     <section class="gem-key" aria-labelledby="gem-key-title">
       <h2 id="gem-key-title">бриллианты недели</h2>
@@ -403,7 +400,7 @@ function rules(m) {
         ${gemRow(1, 'превышены оба лимита, или один и спорта мало. Спорт при этом был')}
         ${gemRow(0, 'лимит превышен, спорта не было')}
       </ul>
-      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}.</p>
+      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}. Вместе с уровнем растет джинн.</p>
     </section>
     </section>
   </main>`;
@@ -419,21 +416,22 @@ export function page(m) {
 const sheetHead = (title) =>
   `<header class="sheet-head"><h2>${title}</h2><button class="link" type="button" data-act="close" data-key="close">закрыть</button></header>`;
 
-function noteFor(m, kind, day, who, n = 1) {
-  const res = preview(m.state, m.today, { who, kind, day, n });
+function noteFor(m, kind, day, who, n = 1, bad = false) {
+  const res = preview(m.state, m.today, { who, kind, day, n, bad });
   if (!res.week) return { text: 'до первой недели в счет не идет' };
   if (res.foul) {
     const why = res.foul.reasons.map((r) => REASON[r]).join(', ');
-    return { text: `нарушение: ${why}. ${res.foul.cost > 1 ? `штрафов: ${res.foul.cost}` : 'штраф'}`, foul: true };
+    // игры это нарушение полегче: доля штрафа
+    const price = res.foul.light ? C.PENALTY_PART[m.s.gamesPerPenalty] : res.foul.cost > 1 ? `штрафов: ${res.foul.cost}` : 'штраф';
+    return { text: `нарушение: ${why}. ${price}`, foul: true };
   }
-  const same = m.events.filter((e) => e.day === day && e.who === who);
+  // у полезного видно, сколько наберется к норме недели на три бриллианта
   switch (kind) {
     case 'gym':
     case 'pool':
-      return { text: same.some((e) => e.kind === kind) ? 'второй раз за день джинна не бьет' : `джинну минус ${m.s.hitGym}` };
+      return { text: `спорт за неделю: ${res.week.counts.gym[who] + res.week.counts.pool[who]} из ${m.s.needSport}` };
     case 'cowork':
-      if (same.some((e) => e.kind === 'hookah')) return { text: 'с кальяном в этот день не считается' };
-      return { text: same.some((e) => e.kind === 'cowork') ? 'второй за день джинна не бьет' : `джинну минус ${m.s.hitCowork}` };
+      return { text: `коворкинг за неделю: ${res.week.counts.cowork[who]} из ${m.s.needCowork}` };
     case 'hookah':
       return { text: `по плану, будет ${res.week.hearts[who].used} из ${res.week.hearts[who].max}` };
     case 'club':
@@ -485,9 +483,10 @@ export function logSheet(m, sel) {
     .join('');
   const targets = sel.who === 'both' ? [0, 1] : [Number(sel.who)];
   const count = sel.qty || 1;
+  const bad = Boolean(sel.bad); // режим игр: нормально или плохо
   const row = (kind, only) => {
     const list = only || targets;
-    const notes = list.map((who) => ({ who, ...noteFor(m, kind, sel.day, who, kind === 'hookah' ? count : 1) }));
+    const notes = list.map((who) => ({ who, ...noteFor(m, kind, sel.day, who, kind === 'hookah' ? count : 1, kind === 'club' && bad) }));
     const same = notes.every((n) => n.text === notes[0].text);
     const text = same ? notes[0].text : notes.map((n) => `${esc(m.players[n.who].name)}: ${n.text}`).join('; ');
     const foul = notes.some((n) => n.foul);
@@ -501,6 +500,12 @@ export function logSheet(m, sel) {
     (n) =>
       `<button class="seg-btn" type="button" aria-pressed="${n === count}" data-act="log-qty" data-n="${n}" data-key="log-qty-${n}" aria-label="кальянов за раз: ${n}">×${n}</button>`,
   ).join('');
+  const modeBtns = [false, true]
+    .map(
+      (v) =>
+        `<button class="seg-btn" type="button" aria-pressed="${v === bad}" data-act="log-bad" data-bad="${v ? 1 : 0}" data-key="log-bad-${v ? 1 : 0}">${v ? 'плохо' : 'нормально'}</button>`,
+    )
+    .join('');
   const owing = targets.filter((who) => m.debts[who].n > 0);
   const foulById = new Map(m.weeks.flatMap((w) => w.fouls).map((f) => [f.id, f]));
   const logged = m.events.filter((e) => e.day === sel.day && targets.includes(e.who));
@@ -511,13 +516,22 @@ export function logSheet(m, sel) {
           const why = f ? `<span class="hand">${f.reasons.map((r) => REASON[r]).join(', ')}</span>` : '';
           const n = qty(e);
           // у кальяна число правится прямо у записи: отметили один, а было три
-          const fix =
-            e.kind === 'hookah'
-              ? `<div class="seg seg-qty" role="group" aria-label="сколько кальянов было">${QTY.map(
-                  (k) =>
-                    `<button class="seg-btn" type="button" aria-pressed="${k === n}" data-act="set-qty" data-id="${e.id}" data-n="${k}" data-key="set-qty-${e.id}-${k}" aria-label="кальянов было: ${k}">×${k}</button>`,
-                ).join('')}</div>`
-              : '';
+          let fix = '';
+          if (e.kind === 'hookah') {
+            fix = `<div class="seg seg-qty" role="group" aria-label="сколько кальянов было">${QTY.map(
+              (k) =>
+                `<button class="seg-btn" type="button" aria-pressed="${k === n}" data-act="set-qty" data-id="${e.id}" data-n="${k}" data-key="set-qty-${e.id}-${k}" aria-label="кальянов было: ${k}">×${k}</button>`,
+            ).join('')}</div>`;
+          }
+          // у игр так же правится режим
+          if (e.kind === 'club') {
+            fix = `<div class="seg" role="group" aria-label="режим игр">${[false, true]
+              .map(
+                (v) =>
+                  `<button class="seg-btn" type="button" aria-pressed="${v === Boolean(e.bad)}" data-act="set-bad" data-id="${e.id}" data-bad="${v ? 1 : 0}" data-key="set-bad-${e.id}-${v ? 1 : 0}">${v ? 'плохо' : 'нормально'}</button>`,
+              )
+              .join('')}</div>`;
+          }
           return `<li><div class="logged-row"><span class="logged-what">${icon(e.kind)} ${C.KIND[e.kind].name}${n > 1 ? ` ×${n}` : ''}, ${esc(m.players[e.who].name)} ${why}</span>
               <button class="link" type="button" data-act="unlog" data-id="${e.id}" data-key="unlog-${e.id}">убрать</button></div>${fix}</li>`;
         })
@@ -532,7 +546,7 @@ export function logSheet(m, sel) {
       ${row('gym')}${row('pool')}${row('cowork')}
       <div class="opts-gap" aria-hidden="true"></div>
       <div class="opt-qty">${row('hookah')}<div class="seg seg-qty" role="group" aria-label="сколько кальянов за раз">${qtyBtns}</div></div>
-      ${row('club')}
+      <div class="opt-qty">${row('club')}<div class="seg" role="group" aria-label="режим игр">${modeBtns}</div></div>
       ${owing.length ? `<div class="opts-gap" aria-hidden="true"></div>${row('penalty', owing)}` : ''}
     </div>`;
 }
@@ -619,16 +633,10 @@ export function menuSheet(m) {
       ${numRow('бриллиантов за неделю, не меньше', 'lvlGems', s.lvlGems, { min: 1, max: 3, off })}
     </section>
     <section class="set">
-      <h3>джинн</h3>
-      ${numRow('здоровье', 'hpMax', s.hpMax, { min: 1, max: 40, off })}
-      ${numRow('спорт и бассейн снимают', 'hitGym', s.hitGym, { min: 0, max: 10, off })}
-      ${numRow('коворкинг снимает', 'hitCowork', s.hitCowork, { min: 0, max: 10, off })}
-      ${numRow('нарушение возвращает', 'foulHeal', s.foulHeal, { min: 0, max: 10, off })}
-    </section>
-    <section class="set">
       <h3>штраф</h3>
       <p class="hint">За нарушение ${C.PENALTY}.</p>
       ${numRow('срок, дней', 'penaltyDays', s.penaltyDays, { min: 1, max: 14, off })}
+      ${numRow('нарушений в играх на один штраф', 'gamesPerPenalty', s.gamesPerPenalty, { min: 1, max: 5, off })}
     </section>
     <section class="set">
       <h3>первая неделя</h3>

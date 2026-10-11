@@ -22,10 +22,7 @@ Pixel art sprite sheet, 4 columns by 3 rows, twelve equal cells, landscape 4:3. 
 - **в форме**: тренировка была сегодня или вчера.
 - **в дыму**: сегодня был кальян или висит неотработанный штраф.
 - **спит**: три дня без записей.
-- **джинн жив**: неделя идет, здоровья много.
-- **джинн смеется**: на этой неделе было нарушение, джинн подлечился.
-- **джинн напуган**: осталось меньше трети здоровья.
-- **джинн побежден**: здоровье на нуле.
+- **джинн**: сейчас в комнате стоит только первая поза. Здоровье джинна убрано, остальные три позы не используются. Варианты по уровням ниже, в разделе «Джинн по уровням».
 
 ## Требования к файлам
 
@@ -57,6 +54,16 @@ Pixel art sprite sheet, 2x2 grid of four equal square cells, the same character 
 ```
 Pixel art sprite sheet, 2x2 grid of four equal square cells, the same character in four poses, in exactly the same pixel style as the reference image. Character: a mischievous hookah smoke genie, round body of gray smoke #bebcbb with a curl on top, thick eyebrows, smoke tail rising from a small hookah bowl with one glowing orange coal #ff6f1e. Top left: confident smirk, arms crossed. Top right: laughing, puffed up bigger, arms raised. Bottom left: scared and shrunken, worried eyes, one sweat drop. Bottom right: defeated, only three small fading smoke puffs above the empty bowl, coal gone dark. Style: 8-bit NES game sprite on a 32x32 pixel grid, large crisp square pixels, 1-pixel near-black outline #171717, flat colors, no gradients, no anti-aliasing, no glow, no ground shadow. Background: solid flat magenta #ff00ff, nothing else. No text labels, no frame, no grid lines. Each pose centered in its cell.
 ```
+
+## Джинн по уровням
+
+Джинн теперь спутник персонажа: чем выше уровень, тем он крупнее и наряднее. Нужен один лист, четыре джинна в ряд, слева направо от слабого к сильному. Формат 4:1 (например 2048 на 512), `sheet.png` приложить как референс стиля. Файл: `genie-levels.png`.
+
+```
+Pixel art sprite sheet, one horizontal row of four equal square cells, the same character at four stages of growth from weakest (left) to strongest (right), in exactly the same pixel style as the reference image. Character: a friendly hookah smoke genie, round body of gray smoke #bebcbb with a curl on top, thick eyebrows, smoke tail rising from a small hookah bowl with one glowing orange coal #ff6f1e. Cell 1: tiny baby genie, a small round puff with big curious eyes, no arms, takes about 40 percent of the cell. Cell 2: young genie, small arms, calm smile, the same as the genie on the reference, about 60 percent of the cell. Cell 3: strong genie, broader body, crossed muscular arms, two golden bracelets #f5c542, small purple vest, confident grin, about 80 percent of the cell. Cell 4: grand genie, the largest, golden turban with a red jewel, golden bracelets and necklace, orange eyes #ff6f1e, proud pose with fists on hips, two small yellow pixel sparkles next to the turban, fills the cell. Style: 8-bit NES game sprite on a 32x32 pixel grid, large crisp square pixels, 1-pixel near-black outline #171717, flat colors, no gradients, no anti-aliasing, no glow, no ground shadow. Background: solid flat magenta #ff00ff, nothing else. No text labels, no frame, no grid lines. Each figure centered in its cell, bowl at the same height in every cell.
+```
+
+Уровни по картинкам: первая с lvl 0, вторая с lvl 2, третья с lvl 4, четвертая с lvl 6. Пока листа нет, на всех уровнях стоит прежний джинн, который просто растет в размере.
 
 ## Иконка: джинн без кальяна
 

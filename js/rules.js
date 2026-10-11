@@ -9,12 +9,10 @@ export const MAX_CLUB = 7;
 export const DEFAULTS = {
   levelStart: 4,
   clubStart: 2,
-  hpMax: 7,
-  hitGym: 2,
-  hitCowork: 1,
-  foulHeal: 3,
   baseline: 5,
   penaltyDays: 2,
+  // игры: нарушение полегче, один штраф набегает за столько нарушений
+  gamesPerPenalty: 2,
   // норма недели для трех бриллиантов
   needSport: 2,
   needCowork: 1,
@@ -25,12 +23,12 @@ export const DEFAULTS = {
   goalSport: 10,
   goalCowork: 5,
   goalClean: 7,
-  goalGenie: 3,
   goalGems: 1,
+  goalLevel: 3,
 };
 
 /** Достижения с числом: в какой настройке лежит цель. */
-export const GOAL_KEYS = { sport: 'goalSport', cowork: 'goalCowork', clean: 'goalClean', genie: 'goalGenie', gems: 'goalGems' };
+export const GOAL_KEYS = { sport: 'goalSport', cowork: 'goalCowork', clean: 'goalClean', gems: 'goalGems', level: 'goalLevel' };
 export const GOAL_MAX = 99;
 
 // --- даты ---------------------------------------------------------------
@@ -90,11 +88,8 @@ const perWho = (v) => (v && typeof v === 'object' ? [v.p0, v.p1] : [v, v]);
 export function normalize(settings) {
   const s = { ...DEFAULTS, ...(settings || {}) };
   s.limitSet = s.limitSet || {};
-  s.hpMax = clampInt(s.hpMax, 1, 40);
-  s.hitGym = clampInt(s.hitGym, 0, 10);
-  s.hitCowork = clampInt(s.hitCowork, 0, 10);
-  s.foulHeal = clampInt(s.foulHeal, 0, 10);
   s.penaltyDays = clampInt(s.penaltyDays, 1, 14);
+  s.gamesPerPenalty = clampInt(s.gamesPerPenalty, 1, 5);
   s.needSport = clampInt(s.needSport, 0, 14);
   s.needCowork = clampInt(s.needCowork, 0, 7);
   s.lvlWeeks = clampInt(s.lvlWeeks, 1, 8);
@@ -131,7 +126,7 @@ function isSportDay(mine, plans, who, day) {
 }
 
 // --- неделя ---------------------------------------------------------------
-// Все личное: у каждого свой лимит, свой джинн, свои бриллианты. Поля недели, которые
+// Все личное: у каждого свой лимит, свои бриллианты. Поля недели, которые
 // зависят от человека, это массивы из двух значений по индексу игрока.
 
 /**
@@ -152,7 +147,7 @@ export function gemsOf({ overHookah, overClub, sport, cowork }, s) {
 function summarize(ctx) {
   const { s, events, plans, w, end, levels, clubs, periodStarts, closed, future, today, owed } = ctx;
   const inWeek = events.filter((e) => e.day >= w && e.day <= end);
-  const hit = { gym: s.hitGym, pool: s.hitGym, cowork: s.hitCowork };
+  const unit = s.gamesPerPenalty;
 
   const counts = {};
   for (const kind of KINDS) counts[kind] = [0, 0];
@@ -167,7 +162,6 @@ function summarize(ctx) {
     future,
     counts,
     fouls: [],
-    hpMax: s.hpMax,
     level: [],
     limit: [],
     periodWeeks: [],
@@ -176,9 +170,6 @@ function summarize(ctx) {
     clubLimit: [],
     hearts: [],
     tokens: [],
-    damage: [],
-    heal: [],
-    hp: [],
     debt: [],
     over: [],
     gems: [],
@@ -206,34 +197,26 @@ function summarize(ctx) {
       if (isSportDay(mine, plans, who, e.day)) reasons.push('gymday');
       if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'hookah', reasons });
     });
+    // игры: сверх лимита или в плохом режиме. Это легкое нарушение, доля штрафа
     clubsDone.forEach((e, i) => {
-      if (i >= clubLimit) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'club', reasons: ['over'] });
+      const reasons = [];
+      if (i >= clubLimit) reasons.push('over');
+      if (e.bad) reasons.push('bad');
+      if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'club', reasons, light: true });
     });
-    // каждое следующее нарушение за неделю дороже на один штраф
-    list.sort(byTime).forEach((f, i) => {
-      f.cost = i + 1;
+    // Счет идет в долях: в одном штрафе unit долей. Нарушение в играх это одна доля.
+    // Кальян: первое нарушение за неделю стоит один штраф, каждое следующее на один дороже.
+    let hard = 0;
+    list.sort(byTime).forEach((f) => {
+      f.cost = f.light ? 0 : (hard += 1);
+      f.units = f.light ? 1 : f.cost * unit;
       wk.fouls.push(f);
-      owed[who] += f.cost;
+      owed[who] += f.units;
     });
-
-    // удары по своему джинну: не больше одного каждого вида в день
-    const seen = new Set();
-    let damage = 0;
-    for (const e of inWeek) {
-      if (e.who !== who || !hit[e.kind]) continue;
-      const key = `${e.day}|${e.kind}`;
-      if (seen.has(key)) continue;
-      // коворкинг считается только без кальяна в этот день
-      if (e.kind === 'cowork' && inWeek.some((x) => x.kind === 'hookah' && x.who === who && x.day === e.day)) continue;
-      seen.add(key);
-      damage += hit[e.kind];
-    }
-    const heal = list.length * s.foulHeal;
-    const hp = Math.max(0, s.hpMax + heal - damage);
 
     // долг: все начисленное к концу этой недели минус отработанное к сроку
     const paid = events.filter((e) => e.kind === 'penalty' && e.who === who && e.day <= through).length;
-    const debt = Math.max(0, owed[who] - paid);
+    const debt = Math.floor(Math.max(0, owed[who] - paid * unit) / unit);
 
     wk.level.push(levels[who]);
     wk.limit.push(rung.n);
@@ -243,9 +226,6 @@ function summarize(ctx) {
     wk.clubLimit.push(clubLimit);
     wk.hearts.push({ max: rung.n, used, left: Math.max(0, rung.n - used) });
     wk.tokens.push({ max: clubLimit, used: clubsDone.length, left: Math.max(0, clubLimit - clubsDone.length) });
-    wk.damage.push(damage);
-    wk.heal.push(heal);
-    wk.hp.push(hp);
     wk.debt.push(debt);
     const over = { hookah: used > rung.n, club: clubsDone.length > clubLimit };
     wk.over.push(over);
@@ -326,22 +306,21 @@ export function level(weeks, who) {
 /** Неотработанные штрафы человека на сегодня и срок самого раннего. */
 export function debtInfo(state, weeks, who, today) {
   const s = normalize(state.settings);
-  let paid = live(state.events).filter((e) => e.kind === 'penalty' && e.who === who && e.day <= today).length;
-  let n = 0;
+  const unit = s.gamesPerPenalty; // долей в одном штрафе
+  let paid = live(state.events).filter((e) => e.kind === 'penalty' && e.who === who && e.day <= today).length * unit;
+  let rest = 0;
   let since = null;
   for (const wk of weeks) {
     for (const f of wk.fouls) {
       if (f.who !== who || f.day > today) continue;
-      if (paid >= f.cost) {
-        paid -= f.cost;
-        continue;
-      }
-      n += f.cost - paid;
-      paid = 0;
-      if (!since) since = f.day;
+      const take = Math.min(paid, f.units);
+      paid -= take;
+      rest += f.units - take;
+      // срок идет с того нарушения, на котором набежал целый штраф
+      if (!since && rest >= unit) since = f.day;
     }
   }
-  return { n, since, due: since ? addDays(since, s.penaltyDays) : null };
+  return { n: Math.floor(rest / unit), since, due: since ? addDays(since, s.penaltyDays) : null };
 }
 
 /** Сколько дней подряд без кальяна (сегодня считается, если кальяна сегодня не было). */
@@ -390,9 +369,10 @@ export function mood(state, weeks, who, today) {
 }
 
 /** Что будет, если отметить событие: нарушение или нет, и остаток после него. */
-export function preview(state, today, { who, kind, day, n = 1 }) {
+export function preview(state, today, { who, kind, day, n = 1, bad = false }) {
   const id = '__preview';
-  const tmp = { ...state, events: { ...(state.events || {}), [id]: { id, who, kind, day, n, at: Number.MAX_SAFE_INTEGER } } };
+  const ev = { id, who, kind, day, n, at: Number.MAX_SAFE_INTEGER, ...(bad ? { bad: true } : {}) };
+  const tmp = { ...state, events: { ...(state.events || {}), [id]: ev } };
   const wk = timeline(tmp, today, { through: weekOf(day) }).find((w) => w.start === weekOf(day));
   if (!wk) return { foul: null, week: null };
   return { foul: wk.fouls.find((f) => f.id === id) || null, week: wk };
@@ -400,13 +380,13 @@ export function preview(state, today, { who, kind, day, n = 1 }) {
 
 /**
  * Какой возглас показать после отметки. Считается по состоянию до записи события.
- * Возвращает код: danger, foul, treat, hookah-ok, club-over, club-ok, paid, paid-part, win, late, good.
+ * Возвращает код: danger, foul, treat, hookah-ok, club-over, club-bad, club-ok, paid, paid-part, norm, late, good.
  */
-export function shoutFor(state, today, { who, kind, day, n = 1 }) {
+export function shoutFor(state, today, { who, kind, day, n = 1, bad = false }) {
   const s = normalize(state.settings);
   const mine = live(state.events).filter((e) => e.who === who);
   const hookahs = mine.filter((e) => e.kind === 'hookah');
-  const after = preview(state, today, { who, kind, day, n });
+  const after = preview(state, today, { who, kind, day, n, bad });
 
   if (kind === 'hookah') {
     const sameDay = hookahs.filter((e) => e.day === day).reduce((sum, e) => sum + qty(e), 0);
@@ -418,7 +398,7 @@ export function shoutFor(state, today, { who, kind, day, n = 1 }) {
     if (sameDay === 0 && from && diffDays(day, from) > 5) return 'treat';
     return 'hookah-ok';
   }
-  if (kind === 'club') return after.foul ? 'club-over' : 'club-ok';
+  if (kind === 'club') return !after.foul ? 'club-ok' : after.foul.reasons.includes('over') ? 'club-over' : 'club-bad';
   if (kind === 'penalty') {
     const weeks = timeline(state, today);
     return debtInfo(state, weeks, who, today).n <= 1 ? 'paid' : 'paid-part';
@@ -426,7 +406,9 @@ export function shoutFor(state, today, { who, kind, day, n = 1 }) {
   if (kind === 'cowork' || SPORT.includes(kind)) {
     const week = weekOf(day);
     const before = timeline(state, today, { through: week }).find((w) => w.start === week);
-    if (before && after.week && before.hp[who] > 0 && after.week.hp[who] === 0) return 'win';
+    // этой отметкой набрана норма недели по спорту и коворкингу
+    const norm = (wk) => wk.counts.gym[who] + wk.counts.pool[who] >= s.needSport && wk.counts.cowork[who] >= s.needCowork;
+    if (before && after.week && !norm(before) && norm(after.week)) return 'norm';
     return hookahs.some((e) => e.day === day) ? 'late' : 'good';
   }
   return null;
@@ -465,8 +447,8 @@ export function stickers(state, weeks, today) {
       sport: count(SPORT),
       cowork: count(['cowork']),
       clean: longestCleanRun(state, who, today),
-      genie: past.filter((w) => w.hp[who] === 0).length,
       gems: past.filter((w) => w.closed && w.gems[who] === 3).length,
+      level: level(weeks, who),
     };
     for (const [id, key] of Object.entries(GOAL_KEYS)) out.push({ id, who, have: have[id], need: s[key], got: have[id] >= s[key] });
     out.push({ id: 'goal', who, have: null, need: null, got: low <= 0 });

@@ -142,17 +142,17 @@ function shout(code) {
 
 // --- действия ----------------------------------------------------------------
 
-function logEvents(kind, day, targets, n = 1) {
+function logEvents(kind, day, targets, n = 1, bad = false) {
   const m = model();
-  const fouls = targets.some((who) => R.preview(m.state, m.today, { who, kind, day, n }).foul);
+  const fouls = targets.some((who) => R.preview(m.state, m.today, { who, kind, day, n, bad }).foul);
   // возглас считаем до записи и про того, кто отмечает (или про первого из отмеченных)
-  const cry = R.shoutFor(m.state, m.today, { who: targets.includes(me) ? me : targets[0], kind, day, n });
+  const cry = R.shoutFor(m.state, m.today, { who: targets.includes(me) ? me : targets[0], kind, day, n, bad });
   const now = Date.now();
   const ids = [];
   const writes = targets.map((who, i) => {
     const id = newId();
     ids.push(id);
-    return { path: `events/${id}`, value: { id, who, kind, day, at: now + i, ...(n > 1 ? { n } : {}) } };
+    return { path: `events/${id}`, value: { id, who, kind, day, at: now + i, ...(n > 1 ? { n } : {}), ...(bad ? { bad: true } : {}) } };
   });
   store.write(writes);
   const text = `${C.KIND[kind].done}${n > 1 ? ` ×${n}` : ''}${targets.length > 1 ? ' обоим' : ''}${fouls ? ': нарушение' : ''}`;
@@ -215,10 +215,6 @@ function createDiary(form) {
         baseline,
         levelStart: { p0: level, p1: level },
         clubStart: { p0: R.DEFAULTS.clubStart, p1: R.DEFAULTS.clubStart },
-        hpMax: R.DEFAULTS.hpMax,
-        hitGym: R.DEFAULTS.hitGym,
-        hitCowork: R.DEFAULTS.hitCowork,
-        foulHeal: R.DEFAULTS.foulHeal,
         penaltyDays: R.DEFAULTS.penaltyDays,
       },
     },
@@ -252,13 +248,30 @@ const actions = {
     keepFocus(() => renderSheet(model()));
   },
   log(el) {
-    const { day, who, qty } = sheetState;
+    const { day, who, qty, bad } = sheetState;
     const kind = el.dataset.kind;
     let targets = who === 'both' ? [0, 1] : [who];
     // штраф отмечается только тому, за кем он числится
     if (kind === 'penalty') targets = targets.filter((w) => model().debts[w].n > 0);
     closeSheet();
-    if (targets.length) logEvents(kind, day, targets, kind === 'hookah' ? qty || 1 : 1);
+    if (targets.length) logEvents(kind, day, targets, kind === 'hookah' ? qty || 1 : 1, kind === 'club' && Boolean(bad));
+  },
+  'log-bad'(el) {
+    sheetState.bad = el.dataset.bad === '1';
+    keepFocus(() => renderSheet(model()));
+  },
+  /** Поправить режим игр в уже сделанной записи. */
+  'set-bad'(el) {
+    const id = el.dataset.id;
+    const ev = (store.state.events || {})[id];
+    if (!ev) return;
+    const was = Boolean(ev.bad);
+    const bad = el.dataset.bad === '1';
+    if (bad === was) return;
+    const write = (v) => store.write([{ path: `events/${id}/bad`, value: v ? true : null }]);
+    write(bad);
+    toast(bad ? 'игры: плохой режим' : 'игры: нормально', () => write(was));
+    if (bad) shout('club-bad');
   },
   /** Поправить число кальянов в уже сделанной записи. Лист остается открытым: видно, что получилось. */
   'set-qty'(el) {
@@ -352,11 +365,8 @@ const actions = {
     const d = Number(el.dataset.d);
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
     const common = {
-      hpMax: [1, 40],
-      hitGym: [0, 10],
-      hitCowork: [0, 10],
-      foulHeal: [0, 10],
       penaltyDays: [1, 14],
+      gamesPerPenalty: [1, 5],
       needSport: [0, 14],
       needCowork: [0, 7],
       lvlWeeks: [1, 8],

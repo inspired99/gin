@@ -366,7 +366,7 @@ export function gem(full, opts = {}) {
 
 /** Картинка достижения. Джинн нарисован владельцем, остальное пиксельные сетки. */
 export function sticker(id, opts = {}) {
-  if (id === 'genie') return genie('hurt', { size: 56 });
+  if (id === 'level') return genie('up', { size: 56 });
   return render([STICKERS[id]], BASE, { scale: 3, ...opts });
 }
 

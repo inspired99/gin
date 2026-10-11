@@ -398,10 +398,11 @@ main > .scene + .scene {
   width: 28%;
 }
 
+/* джинн растет вместе с уровнем персонажа: множитель приходит из разметки */
 .room-genie {
   right: 15%;
   bottom: 13%;
-  width: 23%;
+  width: calc(23% * var(--genie, 1));
 }
 
 .stock {
@@ -474,23 +475,6 @@ main > .scene + .scene {
   display: inline-flex;
   align-items: center;
   gap: var(--s1);
-}
-
-.hp {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 2px;
-}
-
-.hp i {
-  width: 12px;
-  height: 14px;
-  box-shadow: inset 0 0 0 2px var(--ink);
-}
-
-.hp i.on {
-  background: var(--ink);
 }
 
 .debt {
