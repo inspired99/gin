@@ -108,7 +108,6 @@ export function demoState(today) {
       baseline: 5,
       levelStart: 4,
       clubStart: 3,
-      joined: { p0: true, p1: true },
     },
     events,
     plan,

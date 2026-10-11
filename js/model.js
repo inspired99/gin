@@ -72,6 +72,5 @@ export function buildModel(state, today, view) {
     status: view.status || 'local',
     pending: view.pending || 0,
     kind: view.kind || 'local',
-    joined: Boolean(s.joined && s.joined[`p${other}`]),
   };
 }

@@ -55,10 +55,6 @@ function banner(m) {
   if (m.kind === 'local') {
     return `<p class="banner">Синхронизация не подключена: дневник живет только в этом браузере.</p>`;
   }
-  if (!m.joined) {
-    return `<p class="banner">Отправь ссылку на дневник: ${esc(m.players[m.other].name)} откроет ее и выберет себя.
-      <button class="btn btn-sm" type="button" data-act="copy-link" data-key="copy-link">скопировать ссылку</button></p>`;
-  }
   return '';
 }
 

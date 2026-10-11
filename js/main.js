@@ -310,8 +310,6 @@ const actions = {
   },
   'i-am'(el) {
     me = Number(el.dataset.who);
-    const s = store.state.settings || {};
-    if (!isDemo && !(s.joined && s.joined[`p${me}`])) store.write([{ path: `settings/joined/p${me}`, value: true }]);
     render();
     window.scrollTo(0, 0);
   },
