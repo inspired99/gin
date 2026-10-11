@@ -649,6 +649,11 @@ export function menuSheet(m) {
       <button class="btn" type="button" data-act="copy-link" data-key="copy-link-menu" ${readOnly}>скопировать ссылку</button>
     </section>
     <section class="set">
+      <h3>приложение</h3>
+      <p class="hint">Новая версия подтягивается сама при открытии. Если что-то выглядит по-старому, обнови вручную. В приложении с домашнего экрана то же делает свайп вниз.</p>
+      <button class="btn" type="button" data-act="reload" data-key="reload">обновить приложение</button>
+    </section>
+    <section class="set">
       <h3>журнал</h3>
       <div class="row">
         <button class="btn btn-sm" type="button" data-act="export" data-key="export">скачать журнал (JSON)</button>

@@ -35,6 +35,8 @@ jobs:
           cp -r assets/bg assets/sprites assets/props _site/assets/
           cp assets/icon-*.png _site/assets/
           find _site/assets -name '*.json' -delete
+          # по этому файлу открытое приложение узнает, что вышла новая версия
+          echo "{\"v\":\"${GITHUB_SHA}\"}" > _site/version.json
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

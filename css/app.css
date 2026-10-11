@@ -13,6 +13,13 @@ html {
   scrollbar-color: var(--line-strong) transparent;
 }
 
+/* в приложении с домашнего экрана свайп вниз обновляет страницу сам, без жеста браузера */
+@media (display-mode: standalone) {
+  html {
+    overscroll-behavior-y: contain;
+  }
+}
+
 body {
   margin: 0;
   background: var(--wall) url('../assets/bg/wall.webp') 0 0 / 420px auto;
@@ -1762,6 +1769,34 @@ ol.rule-list .rule h2::before {
 }
 
 /* --- тост --------------------------------------------------------------------- */
+
+/* потянуть вниз: табличка выезжает сверху вслед за пальцем */
+.ptr {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 50%;
+  z-index: var(--z-toast);
+  padding: var(--s2) var(--s4);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-card);
+  background: var(--paper);
+  box-shadow: var(--drop-btn);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--ink);
+  pointer-events: none;
+  transform: translate(-50%, calc(var(--pull, 0px) - 36px));
+}
+
+.ptr[hidden] {
+  display: none;
+}
+
+.ptr[data-state='ready'] {
+  background: var(--white);
+  font-weight: 600;
+}
 
 .toast {
   position: fixed;

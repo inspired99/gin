@@ -8,12 +8,14 @@ import { demoState } from './demo.js';
 import { buildModel, playersOf } from './model.js';
 import { createStore, newId, newRoomKey, prefs } from './store.js';
 import { firebaseAdapter, localAdapter, memoryAdapter } from './sync.js';
+import { checkVersion, hardReload } from './update.js';
 
 const app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
 const sheetBody = document.getElementById('sheet-body');
 const toastEl = document.getElementById('toast');
 const shoutEl = document.getElementById('shout');
+const ptrEl = document.getElementById('ptr');
 
 const params = new URLSearchParams(location.search);
 const isDemo = params.has('demo');
@@ -314,6 +316,10 @@ const actions = {
   'goal-open'(el) {
     openSheet({ type: 'goal', id: el.dataset.id });
   },
+  reload() {
+    closeSheet();
+    refresh();
+  },
   close: closeSheet,
   switch() {
     closeSheet();
@@ -502,4 +508,83 @@ function boot() {
   render();
 }
 
+// --- обновление приложения -------------------------------------------------------
+
+/** Перечитать файлы мимо кеша и перезагрузить страницу. Без сети остаемся как есть. */
+async function refresh() {
+  toast('обновляю');
+  if (!(await hardReload())) toast('Нет сети, обновить не вышло.');
+}
+
+// Приложение с домашнего экрана: кнопки «обновить» там нет, поэтому страницу обновляет свайп вниз.
+// В обычной вкладке это делает сам браузер.
+const standalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const PULL = 90; // сколько тянуть, px
+let pull = null;
+
+function showPull(dy) {
+  if (dy < 12) {
+    ptrEl.hidden = true;
+    return;
+  }
+  const ready = dy >= PULL;
+  ptrEl.hidden = false;
+  ptrEl.dataset.state = ready ? 'ready' : 'pull';
+  ptrEl.textContent = ready ? 'отпусти, чтобы обновить' : 'тяни, чтобы обновить';
+  ptrEl.style.setProperty('--pull', `${Math.round(Math.min(dy, PULL + 24) * 0.6)}px`);
+}
+
+document.addEventListener(
+  'touchstart',
+  (e) => {
+    pull = null;
+    if (!standalone() || e.touches.length !== 1 || sheet.open || window.scrollY > 0) return;
+    pull = { x: e.touches[0].clientX, y: e.touches[0].clientY, dy: 0 };
+  },
+  { passive: true },
+);
+
+document.addEventListener(
+  'touchmove',
+  (e) => {
+    if (!pull) return;
+    const dy = e.touches[0].clientY - pull.y;
+    const dx = Math.abs(e.touches[0].clientX - pull.x);
+    // страницу листают, а не тянут вниз от самого верха: это не наш жест
+    if (e.touches.length !== 1 || window.scrollY > 0 || dy < 0 || dx > Math.max(24, dy)) {
+      pull = null;
+      ptrEl.hidden = true;
+      return;
+    }
+    pull.dy = dy;
+    showPull(dy);
+  },
+  { passive: true },
+);
+
+function endPull() {
+  const go = pull && pull.dy >= PULL;
+  pull = null;
+  ptrEl.hidden = true;
+  if (go) refresh();
+}
+document.addEventListener('touchend', endPull);
+document.addEventListener('touchcancel', () => {
+  pull = null;
+  ptrEl.hidden = true;
+});
+
+// новая версия подтягивается сама: при запуске и когда в приложение вернулись
+const wasHere = Boolean(prefs.room());
+let checkedAt = 0;
+function autoUpdate() {
+  if (Date.now() - checkedAt < 60000) return;
+  checkedAt = Date.now();
+  checkVersion({ existing: wasHere, canReload: () => !sheet.open });
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') autoUpdate();
+});
+
 boot();
+autoUpdate();
