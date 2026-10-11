@@ -101,7 +101,7 @@ function room(m, who) {
       <dl class="stats">
         <div class="stat"><dt><span>полезное за неделю</span></dt><dd class="goods">${good}</dd></div>
         ${stat('hookah', 'кальян', used(h, period))}
-        ${stat('club', 'клуб', used(t))}
+        ${stat('club', 'игры', used(t))}
         <div class="stat"><dt>${genie(state === 'down' ? 'down' : 'up', { size: 32 })}<span>джинн</span></dt>
           <dd><span class="hp" role="img" aria-label="${bossLabel}">${segs}</span></dd></div>
       </dl>
@@ -347,7 +347,7 @@ function versus(m) {
     <thead><tr><th scope="col"><span class="sr">что сравниваем</span></th>${head}</tr></thead>
     <tbody>
       ${row(icon('hookah'), 'кальян', count('hookah'), true)}
-      ${row(icon('club'), 'клуб', count('club'), true)}
+      ${row(icon('club'), 'игры', count('club'), true)}
       ${row(chip('hookah', 'is-foul', ''), 'нарушения', fouls, true)}
       ${row(icon('gym'), 'спорт и бассейн', count(...SPORT), false)}
       ${row(icon('cowork'), 'коворкинг', count('cowork'), false)}
@@ -386,7 +386,7 @@ function rules(m) {
     <section class="rules-panel">
     <div class="rules-head"><h1 class="page-title">правила</h1>${prop('lantern', 76)}</div>
     <ol class="rule-list">
-      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и клубов, он написан под комнатой: «кальян 1 из 3». После двух недель подряд на три бриллианта лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
+      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и игр, он написан под комнатой: «кальян 1 из 3». После двух недель подряд на три бриллианта лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
       ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.')}
       ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день спорта чистый', 'Спорт или бассейн стоят в плане или уже были: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
@@ -398,7 +398,7 @@ function rules(m) {
     <section class="gem-key" aria-labelledby="gem-key-title">
       <h2 id="gem-key-title">бриллианты недели</h2>
       <ul>
-        ${gemRow(3, `кальян и клуб в лимите, спорт ${s.needSport}+, коворкинг ${s.needCowork}+`)}
+        ${gemRow(3, `кальян и игры в лимите, спорт ${s.needSport}+, коворкинг ${s.needCowork}+`)}
         ${gemRow(2, 'лимиты целы, но спорта или коворкинга мало. Или всего хватает, но превышен один лимит')}
         ${gemRow(1, 'превышены оба лимита, или один и спорта мало. Спорт при этом был')}
         ${gemRow(0, 'лимит превышен, спорта не было')}
@@ -588,7 +588,7 @@ export function menuSheet(m) {
       return `<div class="set-person">
         <p class="set-name">${esc(m.players[who].name)}</p>
         ${numRow('кальян', 'level', level, { min: 0, max: MAX_LEVEL, who, text: level >= 1 ? String(level) : '1 на 2 нед.', off })}
-        ${numRow('клуб', 'club', wk.clubLimit[who], { min: 0, max: MAX_CLUB, who, off })}
+        ${numRow('игры', 'club', wk.clubLimit[who], { min: 0, max: MAX_CLUB, who, off })}
       </div>`;
     })
     .join('');
@@ -608,7 +608,7 @@ export function menuSheet(m) {
     </section>
     <section class="set">
       <h3>три бриллианта за неделю</h3>
-      <p class="hint">Кальян и клуб в лимите, а еще:</p>
+      <p class="hint">Кальян и игры в лимите, а еще:</p>
       ${numRow('спорт и бассейн, не меньше', 'needSport', s.needSport, { min: 0, max: 14, off })}
       ${numRow('коворкинг, не меньше', 'needCowork', s.needCowork, { min: 0, max: 7, off })}
     </section>

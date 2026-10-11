@@ -40,7 +40,7 @@ export const KIND = {
   pool: { name: 'бассейн', done: 'бассейн отмечен' },
   cowork: { name: 'коворкинг', done: 'коворкинг отмечен' },
   hookah: { name: 'кальян', done: 'кальян отмечен' },
-  club: { name: 'клуб', done: 'клуб отмечен' },
+  club: { name: 'игры', done: 'игры отмечены' },
   penalty: { name: 'штраф отработан', done: 'штраф отработан' },
 };
 
@@ -63,7 +63,6 @@ export function plural(n, one, few, many) {
 export const nDays = (n) => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
 export const nWeeks = (n) => `${n} ${plural(n, 'неделя', 'недели', 'недель')}`;
 export const nHookah = (n) => `${n} ${plural(n, 'кальян', 'кальяна', 'кальянов')}`;
-export const nClub = (n) => `${n} ${plural(n, 'клуб', 'клуба', 'клубов')}`;
 export const nPenalty = (n) => `${n} ${plural(n, 'штраф', 'штрафа', 'штрафов')}`;
 
 /** Спорт-штраф за одно нарушение. */
@@ -103,7 +102,7 @@ export function gemsWhy(wk, who, s) {
   const sport = wk.counts.gym[who] + wk.counts.pool[who];
   return [
     wk.over[who].hookah ? 'кальян сверх лимита' : 'кальян в лимите',
-    wk.over[who].club ? 'клуб сверх лимита' : 'клуб в лимите',
+    wk.over[who].club ? 'игры сверх лимита' : 'игры в лимите',
     `спорт ${sport} из ${s.needSport}`,
     `коворкинг ${wk.counts.cowork[who]} из ${s.needCowork}`,
   ].join(', ');
