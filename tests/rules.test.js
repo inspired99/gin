@@ -10,6 +10,7 @@ import {
   mood,
   planBlock,
   preview,
+  shoutFor,
   stickers,
   streak,
   timeline,
@@ -485,6 +486,38 @@ test('дни без кальяна и личные наклейки', () => {
   assert.equal(got('rung2', 0), false);
   assert.equal(got('clean7', 0), true);
   assert.equal(got('gym10', 0), false);
+});
+
+test('возглас после отметки', () => {
+  const say = (state, ev, today = ev.day) => shoutFor(state, today, { who: 0, n: 1, ...ev });
+
+  assert.equal(say(make(), { kind: 'gym', day: day(1) }), 'good');
+  assert.equal(say(make(), { kind: 'cowork', day: day(1) }), 'good');
+  assert.equal(say(make({ events: [[0, 'hookah', day(1)]] }), { kind: 'pool', day: day(1) }), 'late');
+  // третьей тренировкой и коворкингом джинн на 7 добит
+  const almost = make({ events: [[0, 'gym', day(0)], [0, 'gym', day(1)], [0, 'gym', day(2)]] });
+  assert.equal(say(almost, { kind: 'cowork', day: day(3) }), 'win');
+
+  const planned = make({ plans: [[0, 'hookah', day(1)], [0, 'hookah', day(8)]] });
+  assert.equal(say(planned, { kind: 'hookah', day: day(1) }), 'hookah-ok');
+  assert.equal(say(make(), { kind: 'hookah', day: day(1) }), 'foul');
+  assert.equal(say(planned, { kind: 'hookah', day: day(1), n: 3 }), 'danger');
+  const twice = make({ events: [[0, 'hookah', day(1)], [0, 'hookah', day(1)]], plans: [[0, 'hookah', day(1)]] });
+  assert.equal(say(twice, { kind: 'hookah', day: day(1) }), 'danger');
+  // прошлый кальян был неделю назад
+  const rested = make({ events: [[0, 'hookah', day(1)]], plans: [[0, 'hookah', day(1)], [0, 'hookah', day(8)]] });
+  assert.equal(say(rested, { kind: 'hookah', day: day(8) }), 'treat');
+  // кальянов не было с самого создания дневника, а ему больше пяти дней
+  assert.equal(say(planned, { kind: 'hookah', day: day(8) }), 'treat');
+
+  assert.equal(say(make(), { kind: 'club', day: day(1) }), 'club-ok');
+  const clubs = make({ events: [0, 1, 2].map((d) => [0, 'club', day(d)]) });
+  assert.equal(say(clubs, { kind: 'club', day: day(3) }), 'club-over');
+
+  const owes = make({ events: [[0, 'hookah', day(0)], [0, 'hookah', day(1)]] }); // долг 1 + 2
+  assert.equal(say(owes, { kind: 'penalty', day: day(2) }), 'paid-part');
+  const owesOne = make({ events: [[0, 'hookah', day(0)]] });
+  assert.equal(say(owesOne, { kind: 'penalty', day: day(1) }), 'paid');
 });
 
 test('удаленные записи не считаются', () => {

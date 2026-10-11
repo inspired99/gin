@@ -105,6 +105,21 @@ export function gradeWhy(wk, who) {
   return 'есть неотработанный штраф';
 }
 
+/** Возгласы после отметки: тон и варианты фразы. Вариант выбирается случайно. */
+export const SHOUT = {
+  good: { tone: 'good', say: ['красавчик!', 'машина!', 'так держать!', 'джинн в шоке!'] },
+  win: { tone: 'good', say: ['джинн повержен!'] },
+  paid: { tone: 'good', say: ['долг закрыт!'] },
+  'paid-part': { tone: 'good', say: ['минус штраф!'] },
+  late: { tone: 'calm', say: ['лучше, чем ничего'] },
+  'hookah-ok': { tone: 'calm', say: ['по плану'] },
+  treat: { tone: 'calm', say: ['приятного покура!'] },
+  'club-ok': { tone: 'calm', say: ['катка засчитана'] },
+  foul: { tone: 'bad', say: ['нарушение!'] },
+  danger: { tone: 'bad', say: ['опасно!'] },
+  'club-over': { tone: 'bad', say: ['перебор!'] },
+};
+
 export const STICKER = {
   first5: { name: 'первая пятерка', how: 'неделя без нарушений и с побежденным джинном' },
   rung3: { name: 'лимит 3', how: 'лимит кальяна 3 в неделю' },

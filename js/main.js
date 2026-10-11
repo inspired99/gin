@@ -5,6 +5,7 @@ import * as R from './rules.js';
 import * as C from './copy.js';
 import * as UI from './ui.js';
 import { demoState } from './demo.js';
+import { buildModel, playersOf } from './model.js';
 import { createStore, newId, newRoomKey, prefs } from './store.js';
 import { firebaseAdapter, localAdapter, memoryAdapter } from './sync.js';
 
@@ -12,6 +13,7 @@ const app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
 const sheetBody = document.getElementById('sheet-body');
 const toastEl = document.getElementById('toast');
+const shoutEl = document.getElementById('shout');
 
 const params = new URLSearchParams(location.search);
 const isDemo = params.has('demo');
@@ -28,15 +30,8 @@ let sheetState = null;
 let undo = null;
 let toastTimer = null;
 
-const live = (obj) => Object.values(obj || {}).filter((r) => r && !r.del);
-const byTime = (a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : (a.at || 0) - (b.at || 0));
 const roomFromHash = () => (location.hash.match(/room=([A-Za-z0-9]+)/) || [])[1] || null;
 const link = () => `${location.origin}${location.pathname}#room=${store.room}`;
-
-function playersOf(state) {
-  const p = (state.settings && state.settings.players) || [];
-  return [0, 1].map((i) => ({ name: (p[i] && p[i].name) || (i === 0 ? 'Елисей' : 'Павел') }));
-}
 
 function defaultStart(today) {
   return R.dow(today) === 0 ? today : R.addDays(R.weekOf(today), 7);
@@ -45,64 +40,12 @@ function defaultStart(today) {
 // --- модель ------------------------------------------------------------------
 
 function model() {
-  const state = store.state;
-  const s = R.normalize(state.settings);
-  const today = R.localDay();
-  const curStart = R.weekOf(today);
-  // в недельном виде показываем неделю и следующую за ней, поэтому считаем на неделю вперед
-  const firstView = today < s.start ? s.start : curStart;
-  const weeks = R.timeline(state, today, { through: R.addDays(firstView, 7) });
-  const cur = weeks.find((w) => w.start === curStart) || weeks[0];
-  const minView = [R.weekOf(s.createdDay || s.start), s.start].sort()[0];
-  const maxView = firstView;
-  if (!viewStart) viewStart = firstView;
-  if (viewStart < minView) viewStart = minView;
-  if (viewStart > maxView) viewStart = maxView;
-  const weekAt = (w) => weeks.find((x) => x.start === w) || R.preWeek(state, w);
-  const view = weekAt(viewStart);
-  const other = me === 0 ? 1 : 0;
-  const curMonth = today.slice(0, 7);
-  const minMonth = minView.slice(0, 7);
-  const maxMonth = R.addDays(today, 7).slice(0, 7);
-  if (!month) month = curMonth;
-  if (month < minMonth) month = minMonth;
-  if (month > maxMonth) month = maxMonth;
-  // лимиты из меню действуют с текущей недели, а до старта с первой
-  const limitWeek = weeks.find((w) => w.start === (today < s.start ? s.start : curStart)) || weeks[0];
-  return {
-    state,
-    s,
-    today,
-    curStart,
-    weeks,
-    cur,
-    view,
-    viewNext: weekAt(R.addDays(viewStart, 7)),
-    mode,
-    canPrev: viewStart > minView,
-    canNext: viewStart < maxView,
-    month,
-    canPrevMonth: month > minMonth,
-    canNextMonth: month < maxMonth,
-    limitWeek,
-    limitWeekIsFirst: limitWeek.start === s.start,
-    foulIds: new Set(weeks.flatMap((w) => w.fouls.map((f) => f.id))),
-    me,
-    other,
-    showOther,
-    shown: showOther ? [0, 1] : [me],
-    players: playersOf(state),
-    events: live(state.events).sort(byTime),
-    plans: live(state.plan),
-    debts: [0, 1].map((who) => R.debtInfo(state, weeks, who, today)),
-    moods: [0, 1].map((who) => R.mood(state, weeks, who, today)),
-    screen,
-    stickers: R.stickers(state, weeks, today),
-    status: store.status,
-    pending: store.pending,
-    kind: store.kind,
-    joined: Boolean(s.joined && s.joined[`p${other}`]),
-  };
+  const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind };
+  const built = buildModel(store.state, R.localDay(), view);
+  // границы недели и месяца приводит модель, запоминаем приведенные значения
+  viewStart = built.viewStart;
+  month = built.month;
+  return built;
 }
 
 // --- отрисовка ---------------------------------------------------------------
@@ -177,11 +120,29 @@ function toast(text, undoFn = null) {
   }, 6000);
 }
 
+/** Возглас по центру экрана, как в старых играх: появляется рывками, мигает и уходит вверх. */
+let shoutTimer = null;
+function shout(code) {
+  const item = C.SHOUT[code];
+  if (!item) return;
+  shoutEl.textContent = item.say[Math.floor(Math.random() * item.say.length)];
+  shoutEl.dataset.tone = item.tone;
+  shoutEl.hidden = true;
+  void shoutEl.offsetWidth; // перезапуск анимации, если возглас еще на экране
+  shoutEl.hidden = false;
+  clearTimeout(shoutTimer);
+  shoutTimer = setTimeout(() => {
+    shoutEl.hidden = true;
+  }, 2200);
+}
+
 // --- действия ----------------------------------------------------------------
 
 function logEvents(kind, day, targets, n = 1) {
   const m = model();
   const fouls = targets.some((who) => R.preview(m.state, m.today, { who, kind, day, n }).foul);
+  // возглас считаем до записи и про того, кто отмечает (или про первого из отмеченных)
+  const cry = R.shoutFor(m.state, m.today, { who: targets.includes(me) ? me : targets[0], kind, day, n });
   const now = Date.now();
   const ids = [];
   const writes = targets.map((who, i) => {
@@ -192,6 +153,7 @@ function logEvents(kind, day, targets, n = 1) {
   store.write(writes);
   const text = `${C.KIND[kind].done}${n > 1 ? ` ×${n}` : ''}${targets.length > 1 ? ' обоим' : ''}${fouls ? ': нарушение' : ''}`;
   toast(text, () => store.write(ids.map((id) => ({ path: `events/${id}/del`, value: true }))));
+  shout(cry);
 }
 
 function togglePlan(kind, day, who) {

@@ -556,13 +556,20 @@ main > .week {
   transform: rotate(24deg);
 }
 
-/* переключатель вида: неделя с соседней или месяц сеткой */
-.diary-modes {
-  margin: 0 0 var(--s4);
+/* верхняя строка дневника: вид слева, стрелки справа */
+.diary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s3);
 }
 
-.week-block + .week-block {
-  margin-top: var(--s6);
+.diary-modes {
+  margin: 0;
+}
+
+.month-title {
+  margin-top: var(--s4);
 }
 
 .cal-who {
@@ -578,11 +585,6 @@ main > .week {
   gap: var(--s3);
 }
 
-.week-range {
-  margin-top: var(--s1);
-  color: var(--muted);
-}
-
 .week-nav {
   display: flex;
   gap: var(--s2);
@@ -592,11 +594,7 @@ main > .week {
   display: block;
 }
 
-.week-note {
-  margin-top: var(--s3);
-  max-width: 60ch;
-}
-
+/* две недели рядом: строки это дни недели, столбцы это недели */
 .diary {
   width: 100%;
   margin-top: var(--s4);
@@ -608,12 +606,26 @@ main > .week {
 .diary thead th {
   padding: 0 var(--s1) var(--s2);
   text-align: left;
-  font-size: 0.9375rem;
-  font-weight: 600;
+  font-weight: 400;
+  vertical-align: bottom;
 }
 
 .diary thead th:first-child {
-  width: 56px;
+  width: 34px;
+}
+
+.duo-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--cocoa);
+}
+
+.duo-range {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--muted);
 }
 
 .diary tbody th,
@@ -624,37 +636,28 @@ main > .week {
 }
 
 .diary tbody th {
-  padding-left: var(--s2);
-  text-align: left;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.dow {
-  margin-right: var(--s1);
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
+  text-align: left;
 }
 
-/* сегодняшняя строка обведена, а не залита */
-.diary tr.is-today > * {
-  border-top: 1.5px solid var(--ink);
-  border-bottom: 1.5px solid var(--ink);
+.diary tbody td + td {
+  border-left: 1px solid var(--line);
 }
 
-.diary tr.is-today > :first-child {
-  border-left: 1.5px solid var(--ink);
-  border-radius: var(--r-card) 0 0 var(--r-card);
+/* сегодняшний день обведен */
+.diary td.is-today {
+  border-radius: var(--r-in);
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 
-.diary tr.is-today > :last-child {
-  border-right: 1.5px solid var(--ink);
-  border-radius: 0 var(--r-card) var(--r-card) 0;
-}
-
-.diary tr.is-today + tr > * {
-  border-top-color: transparent;
+.cell-num {
+  flex: none;
+  min-width: 18px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .cell {
@@ -664,10 +667,11 @@ main > .week {
   gap: var(--s1);
   width: 100%;
   min-height: 52px;
-  padding: 6px var(--s1);
+  padding: var(--s1) 6px;
   border: 0;
   border-radius: var(--r-in);
   background: none;
+  color: var(--ink);
   text-align: left;
 }
 
@@ -675,16 +679,6 @@ main > .week {
   .cell:hover {
     background: var(--tint);
   }
-}
-
-.cell-hint {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: var(--r-in);
-  color: var(--muted);
 }
 
 .chip {
@@ -752,7 +746,6 @@ main > .week {
 
 /* будущий день: что стоит в плане и плюс, чтобы добавить */
 .cell-plan {
-  width: auto;
   min-height: 52px;
 }
 
@@ -760,7 +753,7 @@ main > .week {
   display: grid;
   place-items: center;
   flex: none;
-  width: 44px;
+  width: 40px;
   height: 44px;
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--r-in);
@@ -775,25 +768,19 @@ main > .week {
   }
 }
 
-/* оценки под своими столбцами */
+/* оценки под своими неделями */
 .diary tfoot th,
 .diary tfoot td {
-  padding: var(--s5) var(--s1) 0;
+  padding: var(--s4) var(--s1) 0;
   border-top: 1px solid var(--line);
-  vertical-align: top;
-}
-
-.diary tbody tr.is-today:last-child + * > *,
-.diary tbody:has(tr.is-today:last-child) + tfoot th,
-.diary tbody:has(tr.is-today:last-child) + tfoot td {
-  border-top-color: transparent;
+  vertical-align: middle;
 }
 
 .diary tfoot th {
-  padding: 42px 0 0 var(--s2);
+  padding-left: 0;
   text-align: left;
-  font-size: var(--text-xs);
-  font-weight: 500;
+  font-size: 0.625rem;
+  font-weight: 400;
   color: var(--muted);
 }
 
@@ -1596,6 +1583,52 @@ ol.rule-list .rule h2::before {
   flex: none;
 }
 
+/* --- возглас после отметки ------------------------------------------------------ */
+
+/* крупная пиксельная надпись по центру, как в старых играх; сквозь нее можно нажимать */
+.shout {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 34%;
+  z-index: var(--z-toast);
+  margin: 0;
+  padding: 0 var(--s4);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  /* темная обводка в один «пиксель», чтобы читалось и на пергаменте, и на комнате */
+  text-shadow:
+    2px 0 0 var(--ink),
+    -2px 0 0 var(--ink),
+    0 2px 0 var(--ink),
+    0 -2px 0 var(--ink),
+    2px 2px 0 var(--ink),
+    -2px 2px 0 var(--ink),
+    2px -2px 0 var(--ink),
+    -2px -2px 0 var(--ink),
+    0 6px 0 var(--wall-deep);
+}
+
+.shout[hidden] {
+  display: none;
+}
+
+.shout[data-tone='good'] {
+  color: #5ee06a;
+}
+
+.shout[data-tone='calm'] {
+  color: #ffc247;
+}
+
+.shout[data-tone='bad'] {
+  color: #ff5a43;
+}
+
 /* --- движение ------------------------------------------------------------------ */
 
 @media (prefers-reduced-motion: no-preference) {
@@ -1610,6 +1643,11 @@ ol.rule-list .rule h2::before {
 
   .torch .torch-b {
     animation: flicker 0.44s step-end infinite;
+  }
+
+  /* рывками вырастает, дважды мигает, уходит вверх и гаснет */
+  .shout:not([hidden]) {
+    animation: shout 2.2s steps(1, end) both;
   }
 
   .sheet[open] {
@@ -1634,6 +1672,65 @@ ol.rule-list .rule h2::before {
 @keyframes flicker {
   50% {
     opacity: 1;
+  }
+}
+
+@keyframes shout {
+  0% {
+    transform: translateY(24px) scale(0.4);
+    opacity: 1;
+  }
+
+  5% {
+    transform: translateY(12px) scale(0.8);
+  }
+
+  10% {
+    transform: translateY(0) scale(1.2);
+  }
+
+  16% {
+    transform: translateY(0) scale(1);
+  }
+
+  30% {
+    opacity: 0;
+  }
+
+  36% {
+    opacity: 1;
+  }
+
+  44% {
+    opacity: 0;
+  }
+
+  50% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+
+  72% {
+    transform: translateY(-8px) scale(1);
+  }
+
+  80% {
+    transform: translateY(-16px) scale(1);
+  }
+
+  88% {
+    transform: translateY(-24px) scale(1);
+    opacity: 1;
+  }
+
+  94% {
+    transform: translateY(-32px) scale(1);
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: translateY(-40px) scale(1);
+    opacity: 0;
   }
 }
 
@@ -1683,7 +1780,11 @@ ol.rule-list .rule h2::before {
   }
 
   .diary thead th:first-child {
-    width: 80px;
+    width: 48px;
+  }
+
+  .duo-title {
+    font-size: var(--text-sm);
   }
 
   .slots {

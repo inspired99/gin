@@ -356,6 +356,40 @@ export function preview(state, today, { who, kind, day, n = 1 }) {
   return { foul: wk.fouls.find((f) => f.id === id) || null, week: wk };
 }
 
+/**
+ * Какой возглас показать после отметки. Считается по состоянию до записи события.
+ * Возвращает код: danger, foul, treat, hookah-ok, club-over, club-ok, paid, paid-part, win, late, good.
+ */
+export function shoutFor(state, today, { who, kind, day, n = 1 }) {
+  const s = normalize(state.settings);
+  const mine = live(state.events).filter((e) => e.who === who);
+  const hookahs = mine.filter((e) => e.kind === 'hookah');
+  const after = preview(state, today, { who, kind, day, n });
+
+  if (kind === 'hookah') {
+    const sameDay = hookahs.filter((e) => e.day === day).reduce((sum, e) => sum + qty(e), 0);
+    if (sameDay + n > 2) return 'danger';
+    if (after.foul) return 'foul';
+    // перерыв считаем от прошлого кальяна, а если его не было, от начала дневника
+    const before = hookahs.map((e) => e.day).filter((d) => d < day).sort().pop();
+    const from = before || (s.createdDay && s.createdDay < s.start ? s.createdDay : s.start);
+    if (sameDay === 0 && from && diffDays(day, from) > 5) return 'treat';
+    return 'hookah-ok';
+  }
+  if (kind === 'club') return after.foul ? 'club-over' : 'club-ok';
+  if (kind === 'penalty') {
+    const weeks = timeline(state, today);
+    return debtInfo(state, weeks, who, today).n <= 1 ? 'paid' : 'paid-part';
+  }
+  if (kind === 'cowork' || SPORT.includes(kind)) {
+    const week = weekOf(day);
+    const before = timeline(state, today, { through: week }).find((w) => w.start === week);
+    if (before && after.week && before.hp[who] > 0 && after.week.hp[who] === 0) return 'win';
+    return hookahs.some((e) => e.day === day) ? 'late' : 'good';
+  }
+  return null;
+}
+
 /** Можно ли поставить план на день. Возвращает null или код причины отказа. */
 export function planBlock(state, weeks, { who, kind, day }) {
   const plans = live(state.plan).filter((p) => p.who === who);
