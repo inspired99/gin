@@ -82,11 +82,10 @@ export const dayShort = (day) => `${DOW_SHORT[dow(day)]}, ${dayMonth(day)}`;
 export const byEndOf = (day) => `до конца ${DOW_GEN[dow(day)]}`;
 export const onDay = (day) => DOW_ACC[dow(day)];
 
+/** Диапазон недели коротко: «05.10 - 11.10». */
 export function weekRange(start) {
-  const end = addDays(start, 6);
-  const a = parts(start);
-  const b = parts(end);
-  return a.m === b.m ? `с ${a.d} по ${dayMonth(end)}` : `с ${dayMonth(start)} по ${dayMonth(end)}`;
+  const short = (day) => `${day.slice(8, 10)}.${day.slice(5, 7)}`;
+  return `${short(start)} - ${short(addDays(start, 6))}`;
 }
 
 /** «4 кальяна в неделю» или «1 кальян на две недели». */

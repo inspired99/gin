@@ -21,12 +21,12 @@ export function buildModel(state, today, view) {
   const s = R.normalize(state.settings);
   const { me, showOther = false, mode = 'week', screen = 'home' } = view;
   const curStart = R.weekOf(today);
-  // в недельном виде показываем неделю и следующую за ней, поэтому считаем на неделю вперед
+  // вперед можно уйти на одну неделю, чтобы поставить план
   const firstView = today < s.start ? s.start : curStart;
   const weeks = R.timeline(state, today, { through: R.addDays(firstView, 7) });
   const cur = weeks.find((w) => w.start === curStart) || weeks[0];
   const minView = [R.weekOf(s.createdDay || s.start), s.start].sort()[0];
-  const maxView = firstView;
+  const maxView = R.addDays(firstView, 7);
   let viewStart = view.viewStart || firstView;
   if (viewStart < minView) viewStart = minView;
   if (viewStart > maxView) viewStart = maxView;
@@ -48,7 +48,6 @@ export function buildModel(state, today, view) {
     cur,
     viewStart,
     view: weekAt(viewStart),
-    viewNext: weekAt(R.addDays(viewStart, 7)),
     mode,
     canPrev: viewStart > minView,
     canNext: viewStart < maxView,

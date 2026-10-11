@@ -162,20 +162,17 @@ function cellParts(m, day, who) {
 
 function diaryCell(m, day, who) {
   const { html, names } = cellParts(m, day, who);
-  const isToday = day === m.today;
   const canLog = day <= m.today;
-  const canPlan = day > m.today || (isToday && m.today === m.s.createdDay);
+  const canPlan = day > m.today || (day === m.today && m.today === m.s.createdDay);
   const name = esc(m.players[who].name);
   const what = names.length ? names.join(', ') : 'пусто';
-  const num = `<span class="cell-num">${C.dayNum(day)}</span>`;
   const add = canPlan
     ? `<button class="plan-add" type="button" data-act="plan-open" data-day="${day}" data-who="${who}" data-key="plan-add-${day}-${who}"
         aria-label="${name}, ${C.dayShort(day)}: ${what}. добавить в план">${plus}</button>`
     : '';
-  const cls = isToday ? ' class="is-today"' : '';
-  if (!canLog) return `<td${cls}><div class="cell cell-plan">${num}${html}${add}</div></td>`;
-  return `<td${cls}><button class="cell" type="button" data-act="log-open" data-day="${day}" data-who="${who}" data-key="cell-${day}-${who}"
-    aria-label="${name}, ${C.dayShort(day)}: ${what}. отметить">${num}${html}</button>${add ? `<div class="cell cell-plan">${add}</div>` : ''}</td>`;
+  if (!canLog) return `<td><div class="cell cell-plan">${html}${add}</div></td>`;
+  return `<td><button class="cell" type="button" data-act="log-open" data-day="${day}" data-who="${who}" data-key="cell-${day}-${who}"
+    aria-label="${name}, ${C.dayShort(day)}: ${what}. отметить">${html}</button>${add ? `<div class="cell cell-plan">${add}</div>` : ''}</td>`;
 }
 
 function gradeMark(m, wk, who, cls = '') {
@@ -196,35 +193,37 @@ function legend(full) {
     </p>`;
 }
 
-/** Две недели рядом: строки это дни недели, слева выбранная неделя, справа следующая. */
-function weeksTable(m, who, lead) {
-  const pair = [m.view, m.viewNext];
-  const head = pair
-    .map((wk, i) => {
-      const title = wk.pre ? 'до старта' : `неделя ${wk.index}`;
-      return `<th scope="col"><span class="duo-title"${lead && i === 0 ? ' id="week-title"' : ''}>${title}</span><span class="duo-range">${C.weekRange(wk.start)}</span></th>`;
-    })
-    .join('');
-  const rows = C.DOW_SHORT.map(
-    (label, i) => `<tr><th scope="row">${label}</th>${pair.map((wk) => diaryCell(m, addDays(wk.start, i), who)).join('')}</tr>`,
-  ).join('');
-  const graded = pair.some((wk) => !wk.pre && !wk.future);
-  const grades = graded
-    ? `<tfoot><tr class="grades"><th scope="row">оценка</th>${pair
-        .map((wk) => `<td>${wk.pre || wk.future ? '' : gradeMark(m, wk, who)}</td>`)
-        .join('')}</tr></tfoot>`
+/** Неделя трекером: строка на день, в ней отметки. При показе друга столбцов два. */
+function weekBlock(m) {
+  const wk = m.view;
+  const title = wk.pre ? 'до первой недели' : `неделя ${wk.index}`;
+  const both = m.shown.length > 1;
+  const head = both
+    ? `<thead><tr><th scope="col"><span class="sr">день</span></th>${m.shown
+        .map((who) => `<th scope="col">${esc(m.players[who].name)}</th>`)
+        .join('')}</tr></thead>`
     : '';
-  return `<table class="diary">
-    <thead><tr><th scope="col"><span class="sr">день недели</span></th>${head}</tr></thead>
-    <tbody>${rows}</tbody>
-    ${grades}
-  </table>`;
-}
-
-function weeksBlock(m) {
-  return m.shown
-    .map((who, i) => `${m.shown.length > 1 ? `<h3 class="cal-who">${esc(m.players[who].name)}</h3>` : ''}${weeksTable(m, who, i === 0)}`)
+  const rows = weekDays(wk.start)
+    .map(
+      (day) => `<tr class="${day === m.today ? 'is-today' : ''}">
+      <th scope="row"><span class="dow">${C.DOW_SHORT[dow(day)]}</span><span class="dnum">${C.dayNum(day)}</span></th>
+      ${m.shown.map((who) => diaryCell(m, day, who)).join('')}
+    </tr>`,
+    )
     .join('');
+  const grades =
+    wk.pre || wk.future
+      ? ''
+      : `<tfoot><tr class="grades"><th scope="row">оценка</th>${m.shown.map((who) => `<td>${gradeMark(m, wk, who)}</td>`).join('')}</tr></tfoot>`;
+  return `<div class="week-head">
+      <h2 id="week-title">${title}</h2>
+      <p class="week-range">${C.weekRange(wk.start)}</p>
+    </div>
+    <table class="diary">
+      ${head}
+      <tbody>${rows}</tbody>
+      ${grades}
+    </table>`;
 }
 
 /** Сетка месяца, как календарь в заметках: семь столбцов по дням недели, справа оценка недели. */
@@ -276,7 +275,7 @@ function monthBlock(m) {
   return `<h2 class="month-title" id="week-title">${C.monthTitle(m.month)}</h2>${grids}`;
 }
 
-/** Дневник на главной: две недели рядом или весь месяц сеткой. Стрелки листают то, что выбрано. */
+/** Дневник на главной: неделя строками или весь месяц сеткой. Стрелки листают то, что выбрано. */
 function diary(m) {
   const modeBtn = (mode, label) =>
     `<button class="seg-btn" type="button" aria-pressed="${m.mode === mode}" data-act="diary-mode" data-mode="${mode}" data-key="mode-${mode}">${label}</button>`;
@@ -286,7 +285,7 @@ function diary(m) {
       <div class="seg diary-modes" role="group" aria-label="вид дневника">${modeBtn('week', 'неделя')}${modeBtn('month', 'месяц')}</div>
       ${month ? monthNav(m) : weekNav(m)}
     </div>
-    ${month ? monthBlock(m) : weeksBlock(m)}
+    ${month ? monthBlock(m) : weekBlock(m)}
     ${legend(false)}
     <span class="leaves" aria-hidden="true">${prop('leaf-orange', 40)}${prop('leaf-yellow', 32)}</span>
   </section>`;

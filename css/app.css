@@ -580,9 +580,15 @@ main > .week {
 
 .week-head {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: var(--s3);
+  margin-top: var(--s5);
+}
+
+.week-range {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .week-nav {
@@ -594,70 +600,78 @@ main > .week {
   display: block;
 }
 
-/* две недели рядом: строки это дни недели, столбцы это недели */
+/* неделя трекером: каждый день своей светлой полосой с просветом между ними */
 .diary {
   width: 100%;
-  margin-top: var(--s4);
+  margin-top: var(--s2);
   border-collapse: separate;
-  border-spacing: 0;
+  border-spacing: 0 6px;
   table-layout: fixed;
 }
 
 .diary thead th {
-  padding: 0 var(--s1) var(--s2);
+  padding: 0 var(--s2);
   text-align: left;
-  font-weight: 400;
-  vertical-align: bottom;
+  font-size: 0.9375rem;
+  font-weight: 600;
 }
 
-.diary thead th:first-child {
-  width: 34px;
-}
-
-.duo-title {
-  display: block;
-  font-family: var(--font-display);
-  font-size: 0.75rem;
-  line-height: 1.6;
-  color: var(--cocoa);
-}
-
-.duo-range {
-  display: block;
-  font-size: var(--text-xs);
-  color: var(--muted);
+.diary thead th:first-child,
+.diary tbody th {
+  width: 72px;
 }
 
 .diary tbody th,
 .diary tbody td {
   padding: 0;
-  border-top: 1px solid var(--line);
+  background: var(--white);
   vertical-align: middle;
 }
 
 .diary tbody th {
+  padding-left: var(--s3);
+  border-radius: var(--r-card) 0 0 var(--r-card);
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.diary tbody td:last-child {
+  border-radius: 0 var(--r-card) var(--r-card) 0;
+}
+
+.dow {
+  display: inline-block;
+  width: 24px;
   font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
-  text-align: left;
 }
 
-.diary tbody td + td {
-  border-left: 1px solid var(--line);
+.dnum {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
 }
 
 /* сегодняшний день обведен */
-.diary td.is-today {
-  border-radius: var(--r-in);
-  box-shadow: inset 0 0 0 2px var(--ink);
+.diary tr.is-today > * {
+  box-shadow:
+    inset 0 2px 0 var(--ink),
+    inset 0 -2px 0 var(--ink);
 }
 
-.cell-num {
-  flex: none;
-  min-width: 18px;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
+.diary tr.is-today > th {
+  box-shadow:
+    inset 0 2px 0 var(--ink),
+    inset 0 -2px 0 var(--ink),
+    inset 2px 0 0 var(--ink);
+}
+
+.diary tr.is-today > td:last-child {
+  box-shadow:
+    inset 0 2px 0 var(--ink),
+    inset 0 -2px 0 var(--ink),
+    inset -2px 0 0 var(--ink);
 }
 
 .cell {
@@ -666,8 +680,8 @@ main > .week {
   align-items: center;
   gap: var(--s1);
   width: 100%;
-  min-height: 52px;
-  padding: var(--s1) 6px;
+  min-height: 56px;
+  padding: var(--s1) var(--s2);
   border: 0;
   border-radius: var(--r-in);
   background: none;
@@ -746,7 +760,7 @@ main > .week {
 
 /* будущий день: что стоит в плане и плюс, чтобы добавить */
 .cell-plan {
-  min-height: 52px;
+  min-height: 56px;
 }
 
 .plan-add {
@@ -768,18 +782,17 @@ main > .week {
   }
 }
 
-/* оценки под своими неделями */
+/* оценка недели под отметками */
 .diary tfoot th,
 .diary tfoot td {
-  padding: var(--s4) var(--s1) 0;
-  border-top: 1px solid var(--line);
+  padding: var(--s3) var(--s2) 0;
   vertical-align: middle;
 }
 
 .diary tfoot th {
-  padding-left: 0;
+  padding-left: var(--s3);
   text-align: left;
-  font-size: 0.625rem;
+  font-size: var(--text-sm);
   font-weight: 400;
   color: var(--muted);
 }
@@ -1779,13 +1792,6 @@ ol.rule-list .rule h2::before {
     margin-top: var(--s5);
   }
 
-  .diary thead th:first-child {
-    width: 48px;
-  }
-
-  .duo-title {
-    font-size: var(--text-sm);
-  }
 
   .slots {
     grid-template-columns: repeat(7, minmax(0, 1fr));
