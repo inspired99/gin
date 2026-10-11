@@ -1,0 +1,70 @@
+/* Токены fixgaz. Мир: уютная 8-битная комнатка в замке осенью.
+   Темная деревянная стена, пергаментные панели, чернила и огонь. */
+
+:root {
+  color-scheme: light;
+
+  /* стена: фон страницы */
+  --wall: #4f331a; /* средний цвет досок стены, виден до загрузки плитки */
+  --wall-deep: #2b1b0e;
+  --on-wall: #f3e3bf;
+  --on-wall-muted: #c7b28f;
+
+  /* цвет под картинкой комнаты, пока она грузится */
+  --room-wall: #5a3820;
+
+  /* пергамент: панели с содержимым */
+  --paper: #f3e3bf;
+  --tint: #e7d2a4;
+  --white: #fbf1d8;
+  --ink: #2a1a12;
+  --cocoa: #3a2214;
+  --muted: #6f5840;
+  --line: #d8c391;
+  --line-strong: #b79d68;
+
+  /* огонь факела: только штрихи и заливки, не текст */
+  --marker: #ff7a1e;
+  /* тот же огонь для текста: проходит 4.5:1 на пергаменте */
+  --pen: #a53a06;
+
+  /* шрифты */
+  --font-display: 'Press Start 2P', 'Geist', system-ui, sans-serif;
+  --font-ui: 'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-hand: 'Shantell Sans', 'Segoe Print', 'Bradley Hand', cursive;
+
+  /* кегли: фиксированная шкала, без плавных размеров */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  /* пиксельный шрифт широкий, поэтому заголовки некрупные */
+  --text-h2: 1rem;
+  --text-line: 1.375rem;
+
+  /* шаг 4 px, он же пиксель спрайта */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+
+  /* углы почти прямые: пиксельный мир */
+  --r-in: 4px;
+  --r-card: 6px;
+  --r-btn: 8px;
+
+  /* пиксельная «ступенька» под кнопкой и панелью вместо мягкой тени */
+  --drop-btn: 0 3px 0 var(--ink);
+  --drop-panel: 0 4px 0 var(--wall-deep);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --z-bar: 200;
+  --z-toast: 500;
+
+  --page: 720px;
+}

@@ -1,0 +1,4 @@
+{
+  "prompt": "Нарисовано владельцем в генераторе картинок по промпту из assets/PROMPTS.md, затем нарезано tools/sprites.mjs props. Промпт: Pixel art sprite sheet, 4 columns by 2 rows, eight equal cells, in the same pixel style as the reference image. Row 1: wall torch with flame; the same torch with the flame in a second animation frame; hanging iron lantern with a glowing candle; small pumpkin. Row 2: orange maple leaf; red maple leaf; yellow oak leaf; lit candle on a brass holder. Cozy autumn castle mood, warm amber light. Style: 16-bit RPG item sprites, crisp square pixels, 1-pixel near-black outline, flat colors, no gradients, no shadows. Background: solid flat magenta #ff00ff. No text, no frame, no grid lines. Each sprite centered in its cell.",
+  "createdAt": "2026-10-10T23:51:37.214Z"
+}
