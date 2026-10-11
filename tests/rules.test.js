@@ -163,6 +163,34 @@ test('срыв в день тренировки это обычное наруш
   assert.equal(foul.cost, 1);
 });
 
+test('бассейн это тоже спорт: бьет джинна, делает день чистым, идет в счет тренировок', () => {
+  const state = make({
+    events: [
+      [0, 'pool', day(0)],
+      [0, 'gym', day(0)],
+      [0, 'hookah', day(0)],
+      [1, 'hookah', day(2)],
+    ],
+    plans: [
+      [0, 'hookah', day(0)],
+      [1, 'hookah', day(2)],
+      [1, 'pool', day(2)],
+    ],
+  });
+  const weeks = timeline(state, day(2));
+  const [wk] = weeks;
+  assert.equal(wk.damage[0], 4); // спорт и бассейн в один день считаются оба
+  assert.equal(wk.counts.pool[0], 1);
+  assert.deepEqual(wk.fouls.map((f) => [f.who, f.reasons.join('+')]), [
+    [0, 'gymday'],
+    [1, 'gymday'],
+  ]);
+  assert.equal(mood(make({ events: [[0, 'pool', day(1)]] }), timeline(make(), day(2)), 0, day(2)), 'fit');
+  assert.equal(planBlock(state, weeks, { who: 1, kind: 'hookah', day: day(2) }), 'gymday');
+  assert.equal(planBlock(make({ plans: [[0, 'hookah', day(3)]] }), weeks, { who: 0, kind: 'pool', day: day(3) }), 'hookahday');
+  assert.equal(planBlock(state, weeks, { who: 0, kind: 'cowork', day: day(4) }), null);
+});
+
 test('чужая тренировка мой день чистым не делает', () => {
   const state = make({
     events: [

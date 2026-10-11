@@ -2,9 +2,9 @@
 // Все пользовательские строки проходят через esc(). Состояние показываем картинкой,
 // слова остаются только там, где без них непонятно.
 
-import { MAX_CLUB, MAX_LEVEL, addDays, cleanDays, dow, monthWeeks, preview, qty, weekDays } from './rules.js';
+import { MAX_CLUB, MAX_LEVEL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
 import * as C from './copy.js';
-import { genie, heart, hero, icon, navIcon, prop, sticker, token, torch } from './sprites.js';
+import { genie, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
 
 const { esc } = C;
 
@@ -14,7 +14,7 @@ const chevron = (dir) => svg('chev', dir === 'left' ? 'M10 3 5 8l5 5' : 'M6 3l5 
 const plus = svg('plus', 'M8 3v10M3 8h10');
 const minus = svg('minus', 'M3 8h10');
 
-const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'день тренировки' };
+const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'день спорта' };
 
 // --- шапка -------------------------------------------------------------------
 
@@ -64,10 +64,9 @@ function banner(m) {
 
 // --- сцена: у каждого свой джинн ----------------------------------------------
 
-function meter(kind, label, items, over) {
-  return `<p class="meter" role="img" aria-label="${label}"><span class="meter-ico">${icon(kind)}</span>${items}${
-    over ? `<span class="over">+${over}</span>` : ''
-  }</p>`;
+/** Строка запаса под комнатой: значок, подпись словами и значение справа. */
+function stat(kind, label, value, cls = '') {
+  return `<div class="stat${cls ? ` ${cls}` : ''}"><dt>${icon(kind)}<span>${label}</span></dt><dd>${value}</dd></div>`;
 }
 
 function room(m, who) {
@@ -79,8 +78,6 @@ function room(m, who) {
   const total = wk.hpMax + wk.heal[who];
   const hp = wk.hp[who];
   const state = hp === 0 ? 'down' : hp <= total / 3 ? 'hurt' : wk.heal[who] ? 'laugh' : 'up';
-  const hearts = Array.from({ length: h.max }, (_, i) => heart(i < h.left)).join('');
-  const tokens = Array.from({ length: t.max }, (_, i) => token(i < t.left)).join('');
   const segs = Array.from({ length: total }, (_, i) => `<i class="${i < hp ? 'on' : ''}"></i>`).join('');
   const debt = m.debts[who];
   const due = debt.n ? (debt.due < m.today ? 'срок вышел' : C.byEndOf(debt.due)) : '';
@@ -90,6 +87,12 @@ function room(m, who) {
         <span class="chip is-foul">${icon('penalty')}</span><span class="hand">${debt.n > 1 ? `×${debt.n} ` : ''}${due}</span></button>`
     : '';
   const bossLabel = hp === 0 ? 'джинн побежден' : `джинн: здоровье ${hp} из ${total}`;
+  // полезное за неделю: сколько раз был спорт, бассейн и коворкинг
+  const good = ['gym', 'pool', 'cowork']
+    .map((kind) => `<span class="good" title="${C.KIND[kind].name}">${icon(kind)}<b>${wk.counts[kind][who]}</b><span class="sr">${C.KIND[kind].name}</span></span>`)
+    .join('');
+  const used = (x, note = '') => `<b class="${x.used > x.max ? 'is-over' : ''}">${x.used} из ${x.max}</b>${note}`;
+  const period = wk.periodWeeks[who] > 1 ? '<span class="stat-note">на две недели</span>' : '';
   return `<section class="scene${who === m.me ? ' is-me' : ''}" aria-label="${name}">
     <div class="room">
       ${hero(who, mood, { size: 112, cls: `room-hero${mood === 'sleep' ? '' : ' bob'}`, label: `${name}: ${C.MOOD[mood]}` })}
@@ -97,12 +100,13 @@ function room(m, who) {
     </div>
     <div class="stock">
       <p class="who">${name}</p>
-      ${meter('hookah', `кальян: осталось ${h.left} из ${h.max}`, hearts, Math.max(0, h.used - h.max))}
-      ${meter('club', `клуб: осталось ${t.left} из ${t.max}`, tokens, Math.max(0, t.used - t.max))}
-      <div class="hp-row" role="img" aria-label="${bossLabel}">
-        ${genie(state === 'down' ? 'down' : 'up', { size: 36 })}
-        <div class="hp">${segs}</div>
-      </div>
+      <dl class="stats">
+        <div class="stat"><dt><span>полезное за неделю</span></dt><dd class="goods">${good}</dd></div>
+        ${stat('hookah', 'кальян', used(h, period))}
+        ${stat('club', 'клуб', used(t))}
+        <div class="stat"><dt>${genie(state === 'down' ? 'down' : 'up', { size: 32 })}<span>джинн</span></dt>
+          <dd><span class="hp" role="img" aria-label="${bossLabel}">${segs}</span></dd></div>
+      </dl>
       ${debtChip}
     </div>
   </section>`;
@@ -156,31 +160,21 @@ function cellParts(m, day, who) {
 
 // --- дневник недели ----------------------------------------------------------
 
-function planToggles(m, day, who, plans) {
-  const name = esc(m.players[who].name);
-  return ['gym', 'hookah']
-    .map((kind) => {
-      const on = plans.some((p) => p.kind === kind);
-      return `<button class="toggle" type="button" aria-pressed="${on}" data-act="plan" data-kind="${kind}" data-day="${day}" data-who="${who}"
-        data-key="plan-${day}-${who}-${kind}" aria-label="${name}, ${C.dayShort(day)}: ${C.KIND[kind].name} в план">${icon(kind)}</button>`;
-    })
-    .join('');
-}
-
 function diaryCell(m, day, who) {
-  const { html, names, plans } = cellParts(m, day, who);
+  const { html, names } = cellParts(m, day, who);
   const isToday = day === m.today;
   const canLog = day <= m.today;
   const canPlan = day > m.today || (isToday && m.today === m.s.createdDay);
   const name = esc(m.players[who].name);
-  let out = '';
-  if (canLog) {
-    const label = `${name}, ${C.dayShort(day)}: ${names.length ? names.join(', ') : 'пусто'}. отметить`;
-    const hint = !html && isToday && who === m.me ? `<span class="cell-hint">${plus}</span>` : '';
-    out += `<button class="cell" type="button" data-act="log-open" data-day="${day}" data-who="${who}" data-key="cell-${day}-${who}" aria-label="${label}">${html}${hint}</button>`;
-  }
-  if (canPlan) out += `<div class="toggles">${planToggles(m, day, who, plans)}</div>`;
-  return `<td>${out}</td>`;
+  const what = names.length ? names.join(', ') : 'пусто';
+  const add = canPlan
+    ? `<button class="plan-add" type="button" data-act="plan-open" data-day="${day}" data-who="${who}" data-key="plan-add-${day}-${who}"
+        aria-label="${name}, ${C.dayShort(day)}: ${what}. добавить в план">${plus}</button>`
+    : '';
+  if (!canLog) return `<td><div class="cell cell-plan">${html}${add}</div></td>`;
+  const hint = !html && isToday && who === m.me ? `<span class="cell-hint">${plus}</span>` : '';
+  return `<td><button class="cell" type="button" data-act="log-open" data-day="${day}" data-who="${who}" data-key="cell-${day}-${who}"
+    aria-label="${name}, ${C.dayShort(day)}: ${what}. отметить">${html}${hint}</button>${add ? `<div class="cell cell-plan">${add}</div>` : ''}</td>`;
 }
 
 function diaryRows(m, wk) {
@@ -208,7 +202,7 @@ function gradesRow(m, wk) {
 
 function legend(full) {
   const kinds = full
-    ? ['gym', 'cowork', 'hookah', 'club', 'penalty'].map((k) => `<span>${icon(k)} ${k === 'penalty' ? 'штраф' : C.KIND[k].name}</span>`).join('')
+    ? ['gym', 'pool', 'cowork', 'hookah', 'club', 'penalty'].map((k) => `<span>${icon(k)} ${k === 'penalty' ? 'штраф' : C.KIND[k].name}</span>`).join('')
     : '';
   return `<p class="legend">
       ${kinds}
@@ -222,7 +216,7 @@ function week(m) {
   const wk = m.view;
   const title = wk.pre ? 'до первой недели' : `неделя ${wk.index}`;
   const note = wk.future
-    ? `<p class="week-note">Поставь дни тренировок и кальяна на эту неделю.</p>`
+    ? `<p class="week-note">Плюсом ставь в план спорт, бассейн, коворкинг и дни кальяна.</p>`
     : wk.pre
       ? `<p class="week-note">До первой недели оценки и лимиты не считаются.</p>`
       : '';
@@ -315,7 +309,7 @@ function legendPanel() {
 /** Сравнение за месяц: кто сколько, лучший результат подчеркнут. */
 function versus(m) {
   const inMonth = m.events.filter((e) => e.day.slice(0, 7) === m.month);
-  const count = (kind) => [0, 1].map((who) => inMonth.filter((e) => e.kind === kind && e.who === who).reduce((n, e) => n + qty(e), 0));
+  const count = (...kinds) => [0, 1].map((who) => inMonth.filter((e) => kinds.includes(e.kind) && e.who === who).reduce((n, e) => n + qty(e), 0));
   const fouls = [0, 1].map((who) => m.weeks.flatMap((w) => w.fouls).filter((f) => f.who === who && f.day.slice(0, 7) === m.month).length);
   const row = (pic, label, values, lowerWins) => {
     const best = values[0] === values[1] ? -1 : (values[0] < values[1]) === lowerWins ? 0 : 1;
@@ -329,7 +323,7 @@ function versus(m) {
       ${row(icon('hookah'), 'кальян', count('hookah'), true)}
       ${row(icon('club'), 'клуб', count('club'), true)}
       ${row(chip('hookah', 'is-foul', ''), 'нарушения', fouls, true)}
-      ${row(icon('gym'), 'тренировки', count('gym'), false)}
+      ${row(icon('gym'), 'спорт и бассейн', count(...SPORT), false)}
       ${row(icon('cowork'), 'коворкинг', count('cowork'), false)}
     </tbody>
   </table>`;
@@ -364,14 +358,14 @@ function rules(m) {
     <section class="rules-panel">
     <div class="rules-head"><h1 class="page-title">правила</h1>${prop('lantern', 76)}</div>
     <ol class="rule-list">
-      ${item(`${heart(true)}${heart(true)}${heart(false)}`, 'лимит', 'Сердца это кальяны на неделю, жетоны это клубы. После двух пятерок подряд лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
-      ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если сердца остались.')}
-      ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день тренировки чистый', 'Тренировка стоит в плане или уже была: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
+      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и клубов, он написан под комнатой: «кальян 1 из 3». После двух пятерок подряд лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
+      ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.')}
+      ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день спорта чистый', 'Спорт или бассейн стоят в плане или уже были: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
     </ol>
     <ul class="rule-list">
-      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Сверх лимита, вне плана или в день тренировки. За каждое спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Второе за неделю стоит два штрафа, третье три.`)}
-      ${item(genie('up', { size: 48 }), 'джинн', `У каждого свой, здоровье ${s.hpMax}. Тренировка снимает ${s.hitGym}, коворкинг без кальяна ${s.hitCowork}, каждое раз в день. Нарушение возвращает ${s.foulHeal}. Штрафное занятие не считается.`)}
+      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Сверх лимита, вне плана или в день спорта. За каждое спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Второе за неделю стоит два штрафа, третье три.`)}
+      ${item(genie('up', { size: 48 }), 'джинн', `У каждого свой, здоровье ${s.hpMax}. Спорт и бассейн снимают по ${s.hitGym}, коворкинг без кальяна ${s.hitCowork}, каждое раз в день. Нарушение возвращает ${s.foulHeal}. Штрафное занятие не считается.`)}
     </ul>
     <section class="grade-key" aria-labelledby="grade-key-title">
       <h2 id="grade-key-title">оценка недели</h2>
@@ -406,14 +400,15 @@ function noteFor(m, kind, day, who, n = 1) {
   const same = m.events.filter((e) => e.day === day && e.who === who);
   switch (kind) {
     case 'gym':
-      return { text: same.some((e) => e.kind === 'gym') ? 'вторая за день джинна не бьет' : `джинну минус ${m.s.hitGym}` };
+    case 'pool':
+      return { text: same.some((e) => e.kind === kind) ? 'второй раз за день джинна не бьет' : `джинну минус ${m.s.hitGym}` };
     case 'cowork':
       if (same.some((e) => e.kind === 'hookah')) return { text: 'с кальяном в этот день не считается' };
       return { text: same.some((e) => e.kind === 'cowork') ? 'второй за день джинна не бьет' : `джинну минус ${m.s.hitCowork}` };
     case 'hookah':
-      return { text: `по плану, останется ${C.nHearts(res.week.hearts[who].left)}` };
+      return { text: `по плану, будет ${res.week.hearts[who].used} из ${res.week.hearts[who].max}` };
     case 'club':
-      return { text: `останется жетонов: ${res.week.tokens[who].left}` };
+      return { text: `будет ${res.week.tokens[who].used} из ${res.week.tokens[who].max}` };
     default:
       return { text: `${C.PENALTY}. останется: ${Math.max(0, m.debts[who].n - 1)}` };
   }
@@ -478,13 +473,39 @@ export function logSheet(m, sel) {
     <div class="seg" role="group" aria-label="день">${dayBtns}</div>
     <div class="seg" role="group" aria-label="кому">${whoBtns}</div>
     <div class="opts">
-      ${row('gym')}${row('cowork')}
+      ${row('gym')}${row('pool')}${row('cowork')}
       <div class="opts-gap" aria-hidden="true"></div>
       <div class="opt-qty">${row('hookah')}<div class="seg" role="group" aria-label="сколько кальянов за раз">${qtyBtns}</div></div>
       ${row('club')}
       ${owing.length ? `<div class="opts-gap" aria-hidden="true"></div>${row('penalty', owing)}` : ''}
     </div>
     ${loggedList}`;
+}
+
+/** План на будущий день: что стоит, то нажато; повторное касание снимает. */
+export function planSheet(m, sel) {
+  const who = Number(sel.who);
+  const mine = m.plans.filter((p) => p.day === sel.day && p.who === who);
+  const why = {
+    gymday: 'на день спорта кальян не ставится',
+    hookahday: 'на этот день стоит кальян',
+    limit: 'лимит кальяна уже расписан',
+  };
+  const rows = PLAN_KINDS.map((kind) => {
+    const on = mine.some((p) => p.kind === kind);
+    const block = on ? null : planBlock(m.state, m.weeks, { who, kind, day: sel.day });
+    const note = on ? 'стоит в плане, нажми, чтобы убрать' : block ? why[block] : kind === 'hookah' ? 'день кальяна' : 'в план';
+    return `<button class="opt" type="button" aria-pressed="${on}" data-act="plan" data-kind="${kind}" data-day="${sel.day}" data-who="${who}"
+        data-key="plan-${kind}" ${block ? 'disabled' : ''}>
+      <span class="opt-icon">${icon(kind, { scale: 3 })}</span>
+      <span class="opt-name">${C.KIND[kind].name}</span>
+      <span class="opt-note">${note}</span>
+    </button>`;
+  }).join('');
+  return `${sheetHead('в план')}
+    <p class="sheet-sub">${esc(m.players[who].name)}, ${C.dayShort(sel.day)}</p>
+    <div class="opts">${rows}</div>
+    <button class="btn btn-main sheet-done" type="button" data-act="close" data-key="plan-done">готово</button>`;
 }
 
 /** Строка настройки с числом: подпись слева, «меньше, значение, больше» справа. */
@@ -533,7 +554,7 @@ export function menuSheet(m) {
     <section class="set">
       <h3>джинн</h3>
       ${numRow('здоровье', 'hpMax', s.hpMax, { min: 1, max: 40, off })}
-      ${numRow('тренировка снимает', 'hitGym', s.hitGym, { min: 0, max: 10, off })}
+      ${numRow('спорт и бассейн снимают', 'hitGym', s.hitGym, { min: 0, max: 10, off })}
       ${numRow('коворкинг снимает', 'hitCowork', s.hitCowork, { min: 0, max: 10, off })}
       ${numRow('нарушение возвращает', 'foulHeal', s.foulHeal, { min: 0, max: 10, off })}
     </section>

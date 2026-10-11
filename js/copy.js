@@ -36,7 +36,8 @@ const MONTH_GEN = [
 ];
 
 export const KIND = {
-  gym: { name: 'тренировка', done: 'тренировка отмечена' },
+  gym: { name: 'спорт', done: 'спорт отмечен' },
+  pool: { name: 'бассейн', done: 'бассейн отмечен' },
   cowork: { name: 'коворкинг', done: 'коворкинг отмечен' },
   hookah: { name: 'кальян', done: 'кальян отмечен' },
   club: { name: 'клуб', done: 'клуб отмечен' },
@@ -45,7 +46,7 @@ export const KIND = {
 
 export const MOOD = { idle: 'в порядке', fit: 'в форме', smoke: 'в дыму', sleep: 'спит' };
 
-const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'в день тренировки' };
+const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'в день спорта' };
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -61,7 +62,6 @@ export function plural(n, one, few, many) {
 
 export const nDays = (n) => `${n} ${plural(n, 'день', 'дня', 'дней')}`;
 export const nWeeks = (n) => `${n} ${plural(n, 'неделя', 'недели', 'недель')}`;
-export const nHearts = (n) => `${n} ${plural(n, 'сердце', 'сердца', 'сердец')}`;
 export const nHookah = (n) => `${n} ${plural(n, 'кальян', 'кальяна', 'кальянов')}`;
 export const nClub = (n) => `${n} ${plural(n, 'клуб', 'клуба', 'клубов')}`;
 export const nPenalty = (n) => `${n} ${plural(n, 'штраф', 'штрафа', 'штрафов')}`;
@@ -112,7 +112,7 @@ export const STICKER = {
   rung1: { name: 'лимит 1', how: 'лимит кальяна 1 в неделю' },
   goal: { name: 'цель', how: 'один кальян на две недели' },
   clean7: { name: '7 дней без кальяна', how: 'семь дней подряд без кальяна' },
-  gym10: { name: '10 тренировок', how: 'десять тренировок с начала дневника' },
+  gym10: { name: '10 тренировок', how: 'десять занятий спортом или бассейном с начала дневника' },
 };
 
 export const SYNC = {

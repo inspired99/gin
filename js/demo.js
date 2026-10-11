@@ -47,6 +47,8 @@ export function demoState(today) {
   [2, 4, 6].forEach((d) => ev(0, 'club', 0, d));
   [2, 6].forEach((d) => ev(1, 'club', 0, d));
 
+  ev(1, 'pool', 0, 5);
+
   // неделя 2: первая пятерка
   [1, 3, 5].forEach((d) => hk(0, 1, d));
   [1, 5, 6].forEach((d) => hk(1, 1, d));
@@ -93,6 +95,7 @@ export function demoState(today) {
   gym(0, 4, 4);
   pl(1, 'gym', 4, 4);
   both('cowork', 4, 5);
+  ev(1, 'pool', 4, 4);
   pl(0, 'hookah', 4, 5);
   pl(0, 'gym', 4, 6);
   ev(1, 'club', 4, 5);

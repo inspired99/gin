@@ -123,6 +123,7 @@ function renderSheet(m) {
   if (active && active.tagName === 'INPUT' && sheetBody.contains(active)) return; // не сбиваем ввод
   const top = sheetBody.scrollTop;
   if (sheetState.type === 'log') sheetBody.innerHTML = UI.logSheet(m, sheetState);
+  else if (sheetState.type === 'plan') sheetBody.innerHTML = UI.planSheet(m, sheetState);
   else sheetBody.innerHTML = UI.menuSheet(m);
   sheetBody.scrollTop = top;
 }
@@ -200,7 +201,7 @@ function togglePlan(kind, day, who) {
   if (block) {
     const wk = m.weeks.find((w) => day >= w.start && day <= w.end);
     const why = {
-      gymday: 'На этот день стоит тренировка, кальян на него не ставится.',
+      gymday: 'На этот день стоит спорт, кальян на него не ставится.',
       hookahday: 'На этот день стоит кальян. Сначала убери его из плана.',
       limit: `Лимит уже расписан: ${wk ? C.hookahLimitText(wk.level[who]) : ''}.`,
     }[block];
@@ -286,6 +287,9 @@ const actions = {
     store.write([{ path: `events/${id}/del`, value: true }]);
     closeSheet();
     toast('запись убрана', () => store.write([{ path: `events/${id}/del`, value: null }]));
+  },
+  'plan-open'(el) {
+    openSheet({ type: 'plan', day: el.dataset.day, who: Number(el.dataset.who) });
   },
   plan(el) {
     togglePlan(el.dataset.kind, el.dataset.day, Number(el.dataset.who));
@@ -463,12 +467,14 @@ function boot() {
     store = createStore({ room: 'demo', adapter: memoryAdapter(demoState(R.localDay())), persist: false });
     const who = params.get('me');
     if (who === '0' || who === '1') me = Number(who);
-    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|menu, а &other показывает друга
+    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|plan|menu, а &other показывает друга
     const open = params.get('open');
     if (open === 'stats' || open === 'rules') screen = open;
     if (params.has('other')) showOther = true;
-    if (me != null && ['log', 'menu'].includes(open)) {
-      queueMicrotask(() => openSheet(open === 'log' ? { type: 'log', day: R.localDay(), who: me } : { type: open }));
+    if (me != null && ['log', 'menu', 'plan'].includes(open)) {
+      const day = R.localDay();
+      const state = { log: { type: 'log', day, who: me }, plan: { type: 'plan', day: R.addDays(day, 1), who: me }, menu: { type: 'menu' } }[open];
+      queueMicrotask(() => openSheet(state));
     }
   } else {
     const room = roomFromHash() || prefs.room();

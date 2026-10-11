@@ -398,67 +398,87 @@ main > .scene + .scene {
 }
 
 .stock {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: var(--s2) var(--s5);
   padding: var(--s3) var(--s4) var(--s4);
 }
 
 .who {
-  grid-column: 1 / -1;
   font-size: var(--text-lg);
   font-weight: 600;
   line-height: 1.3;
 }
 
 .is-me .who {
-  justify-self: start;
+  display: inline-block;
   text-decoration: underline;
   text-decoration-color: var(--marker);
   text-decoration-thickness: 3px;
   text-underline-offset: 5px;
 }
 
-.meter {
+/* запас строками: подпись словами слева, число справа */
+.stats {
+  margin: var(--s2) 0 0;
+}
+
+.stat {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
-  min-height: 24px;
+  justify-content: space-between;
+  gap: var(--s3);
+  min-height: 40px;
+  border-top: 1px solid var(--line);
 }
 
-.meter-ico {
-  margin-right: var(--s1);
+.stat dt,
+.stat dd {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin: 0;
 }
 
-.over {
-  margin-left: 2px;
-  font-family: var(--font-hand);
-  font-weight: 500;
+.stat dt {
+  color: var(--muted);
+}
+
+.stat dt .pic {
+  margin: -4px -6px -2px -8px;
+}
+
+.stat dd b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat dd b.is-over {
   color: var(--pen);
 }
 
-/* здоровье джинна: его маленький портрет и полоска во всю ширину */
-.hp-row {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: var(--s1);
+.stat-note {
+  font-size: var(--text-sm);
+  color: var(--muted);
 }
 
-.hp-row .pic {
-  margin: -6px -4px -2px -8px;
+/* счетчик полезного: значок вида и сколько раз за неделю */
+.goods {
+  gap: var(--s3);
+}
+
+.good {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s1);
 }
 
 .hp {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 2px;
 }
 
 .hp i {
-  width: 14px;
+  width: 12px;
   height: 14px;
   box-shadow: inset 0 0 0 2px var(--ink);
 }
@@ -468,12 +488,11 @@ main > .scene + .scene {
 }
 
 .debt {
-  grid-column: 1 / -1;
-  justify-self: start;
   display: flex;
   align-items: center;
   gap: var(--s3);
   min-height: 44px;
+  margin-top: var(--s2);
   padding: var(--s1) var(--s2);
   border: 0;
   border-radius: var(--r-in);
@@ -521,8 +540,8 @@ main > .week {
 /* упавшие листья на нижнем краю листа */
 .leaves {
   position: absolute;
-  right: var(--s4);
-  bottom: -14px;
+  right: var(--s2);
+  bottom: -24px;
   display: flex;
   align-items: flex-end;
   pointer-events: none;
@@ -716,38 +735,28 @@ main > .week {
   transform: rotate(-8deg);
 }
 
-.toggles {
-  display: flex;
-  gap: 6px;
-  padding: var(--s1);
+/* будущий день: что стоит в плане и плюс, чтобы добавить */
+.cell-plan {
+  width: auto;
+  min-height: 52px;
 }
 
-.toggle {
+.plan-add {
   display: grid;
   place-items: center;
+  flex: none;
   width: 44px;
   height: 44px;
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--r-in);
   background: none;
-}
-
-.toggle .px {
-  opacity: 0.28;
-}
-
-.toggle[aria-pressed='true'] {
-  border-color: var(--ink);
-  background: var(--tint);
-}
-
-.toggle[aria-pressed='true'] .px {
-  opacity: 1;
+  color: var(--muted);
 }
 
 @media (hover: hover) {
-  .toggle:hover {
+  .plan-add:hover {
     border-color: var(--ink);
+    color: var(--ink);
   }
 }
 
@@ -1243,6 +1252,33 @@ ol.rule-list .rule h2::before {
   background: var(--white);
   box-shadow: var(--drop-btn);
   text-align: left;
+}
+
+/* в листе плана: нажатая строка стоит в плане, недоступная объясняет почему */
+.opt[aria-pressed='true'] {
+  border-width: 3px;
+  background: var(--tint);
+  box-shadow: none;
+}
+
+.opt:disabled {
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+
+.opt:disabled .opt-icon,
+.opt:disabled .opt-name {
+  opacity: 0.45;
+}
+
+.sheet-sub {
+  margin-top: var(--s1);
+  color: var(--muted);
+}
+
+.sheet-done {
+  width: 100%;
+  margin-top: var(--s4);
 }
 
 /* выбор количества стоит сразу под кальяном */

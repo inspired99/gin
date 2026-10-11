@@ -60,6 +60,12 @@ export function addMonths(month, n) {
 const clampInt = (n, lo, hi) => Math.min(hi, Math.max(lo, Math.trunc(n) || 0));
 const byTime = (a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : (a.at || 0) - (b.at || 0));
 const live = (obj) => Object.values(obj || {}).filter((r) => r && !r.del);
+/** Виды спорта: зал и бассейн. Считаются одинаково, но отмечаются разными значками. */
+export const SPORT = ['gym', 'pool'];
+/** Что можно поставить в план на будущий день. */
+export const PLAN_KINDS = ['gym', 'pool', 'cowork', 'hookah'];
+const KINDS = ['gym', 'pool', 'cowork', 'hookah', 'club', 'penalty'];
+
 /** Сколько кальянов в одной записи: за вечер их бывает два и три. */
 export const qty = (e) => (e.kind === 'hookah' ? clampInt(e.n || 1, 1, 9) : 1);
 /** Значение на двоих: число для обоих или {p0, p1}. */
@@ -91,12 +97,12 @@ function hasHookahPlan(plans, s, who, day) {
   );
 }
 
-/** День тренировки: тренировка уже отмечена или стоит в плане. Снятый в тот же день план все равно считается. */
-function isGymDay(mine, plans, who, day) {
-  if (mine.some((e) => e.kind === 'gym' && e.day === day)) return true;
+/** День спорта: спорт или бассейн уже отмечены или стоят в плане. Снятый в тот же день план все равно считается. */
+function isSportDay(mine, plans, who, day) {
+  if (mine.some((e) => SPORT.includes(e.kind) && e.day === day)) return true;
   return plans.some(
     (p) =>
-      p.kind === 'gym' &&
+      SPORT.includes(p.kind) &&
       p.who === who &&
       p.day === day &&
       (!p.del || (p.madeOn < day && p.delOn >= day)),
@@ -110,10 +116,10 @@ function isGymDay(mine, plans, who, day) {
 function summarize(ctx) {
   const { s, events, plans, w, end, levels, clubs, periodStarts, closed, future, today, owed } = ctx;
   const inWeek = events.filter((e) => e.day >= w && e.day <= end);
-  const hit = { gym: s.hitGym, cowork: s.hitCowork };
+  const hit = { gym: s.hitGym, pool: s.hitGym, cowork: s.hitCowork };
 
   const counts = {};
-  for (const kind of ['gym', 'cowork', 'hookah', 'club', 'penalty']) counts[kind] = [0, 0];
+  for (const kind of KINDS) counts[kind] = [0, 0];
   for (const e of inWeek) if (counts[e.kind]) counts[e.kind][e.who] += qty(e);
 
   const through = closed ? addDays(end, s.penaltyDays) : today;
@@ -159,7 +165,7 @@ function summarize(ctx) {
       const reasons = [];
       if (used > rung.n) reasons.push('over');
       if (!hasHookahPlan(plans, s, who, e.day)) reasons.push('unplanned');
-      if (isGymDay(mine, plans, who, e.day)) reasons.push('gymday');
+      if (isSportDay(mine, plans, who, e.day)) reasons.push('gymday');
       if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'hookah', reasons });
     });
     clubsDone.forEach((e, i) => {
@@ -333,7 +339,7 @@ export function mood(state, weeks, who, today) {
   if (debtInfo(state, weeks, who, today).n > 0) return 'smoke';
   if (events.some((e) => e.kind === 'hookah' && e.day === today)) return 'smoke';
   const yesterday = addDays(today, -1);
-  if (events.some((e) => e.kind === 'gym' && (e.day === today || e.day === yesterday))) return 'fit';
+  if (events.some((e) => SPORT.includes(e.kind) && (e.day === today || e.day === yesterday))) return 'fit';
   const s = normalize(state.settings);
   const lastDay = events.reduce((m, e) => (e.day > m ? e.day : m), '');
   const quietFrom = lastDay || s.start;
@@ -354,14 +360,14 @@ export function preview(state, today, { who, kind, day, n = 1 }) {
 export function planBlock(state, weeks, { who, kind, day }) {
   const plans = live(state.plan).filter((p) => p.who === who);
   if (kind === 'hookah') {
-    if (plans.some((p) => p.kind === 'gym' && p.day === day)) return 'gymday';
+    if (plans.some((p) => SPORT.includes(p.kind) && p.day === day)) return 'gymday';
     const wk = weeks.find((w) => day >= w.start && day <= w.end);
     if (wk) {
       const planned = plans.filter((p) => p.kind === 'hookah' && p.day >= wk.pStart[who] && p.day <= wk.pEnd[who]).length;
       if (planned >= wk.limit[who]) return 'limit';
     }
   }
-  if (kind === 'gym' && plans.some((p) => p.kind === 'hookah' && p.day === day)) return 'hookahday';
+  if (SPORT.includes(kind) && plans.some((p) => p.kind === 'hookah' && p.day === day)) return 'hookahday';
   return null;
 }
 
@@ -382,7 +388,7 @@ export function stickers(state, weeks, today) {
       { id: 'rung1', who, got: low <= 1 },
       { id: 'goal', who, got: low <= 0 },
       { id: 'clean7', who, got: longestCleanRun(state, who, today) >= 7 },
-      { id: 'gym10', who, got: mine.filter((e) => e.kind === 'gym').length >= 10 },
+      { id: 'gym10', who, got: mine.filter((e) => SPORT.includes(e.kind)).length >= 10 },
     );
   }
   return out;
@@ -392,7 +398,7 @@ export function stickers(state, weeks, today) {
 export function preWeek(state, w) {
   const end = addDays(w, 6);
   const counts = {};
-  for (const kind of ['gym', 'cowork', 'hookah', 'club', 'penalty']) counts[kind] = [0, 0];
+  for (const kind of KINDS) counts[kind] = [0, 0];
   for (const e of live(state.events)) if (e.day >= w && e.day <= end && counts[e.kind]) counts[e.kind][e.who] += qty(e);
   return { start: w, end, pre: true, counts, fouls: [], grade: [null, null] };
 }

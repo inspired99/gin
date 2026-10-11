@@ -1,4 +1,4 @@
-// Пиксельная графика fixgaz. Значки, сердца, жетоны и наклейки заданы сетками строк
+// Пиксельная графика fixgaz. Значки и наклейки заданы сетками строк
 // (символ задает цвет) и рисуются в SVG: один path на цвет, масштаб без размытия.
 
 const INK = '#171717';
@@ -38,6 +38,20 @@ const ICONS = {
     'KNNK....KNNK',
     '.KK......KK.',
     '............',
+    '............',
+  ],
+  pool: [
+    '............',
+    '.......KK...',
+    '......KWWK..',
+    '..KKKK.KK...',
+    '.K....KK....',
+    '............',
+    '.BB..BB..BB.',
+    'BBBBBBBBBBBB',
+    'B..BB..BB..B',
+    '.BB..BB..BB.',
+    'BBBBBBBBBBBB',
     '............',
   ],
   cowork: [
@@ -143,9 +157,6 @@ const NAV = {
     '............',
   ],
 };
-
-const HEART = ['.KK...KK.', 'KFFK.KFFK', 'KFFFKFFFK', 'KFFFFFFFK', '.KFFFFFK.', '..KFFFK..', '...KFK...', '....K....'];
-const TOKEN = ['..KKKK..', '.KFFFFK.', 'KFFKKFFK', 'KFFKKFFK', 'KFFKKFFK', 'KFFKKFFK', '.KFFFFK.', '..KKKK..'];
 
 // --- наклейки 16x16 ---------------------------------------------------------
 
@@ -338,14 +349,6 @@ export function navIcon(name, opts = {}) {
   return render([NAV[name]], BASE, { scale: 2, ...opts });
 }
 
-export function heart(full, opts = {}) {
-  return render([HEART], { ...BASE, F: full ? BASE.O : PAPER }, { scale: 2, ...opts });
-}
-
-export function token(full, opts = {}) {
-  return render([TOKEN], { ...BASE, F: full ? BASE.B : PAPER }, { scale: 2, ...opts });
-}
-
 export function sticker(id, opts = {}) {
   return render([STICKERS[id]], BASE, { scale: 3, ...opts });
 }
@@ -356,6 +359,5 @@ export function allGrids() {
   for (const [k, rows] of Object.entries(ICONS)) out.push({ name: `icon ${k}`, rows, w: 12, h: 12 });
   for (const [k, rows] of Object.entries(NAV)) out.push({ name: `nav ${k}`, rows, w: 12, h: 12 });
   for (const [k, rows] of Object.entries(STICKERS)) out.push({ name: `sticker ${k}`, rows, w: 16, h: 16 });
-  out.push({ name: 'heart', rows: HEART, w: 9, h: 8 }, { name: 'token', rows: TOKEN, w: 8, h: 8 });
   return out;
 }
