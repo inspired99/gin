@@ -372,7 +372,7 @@ const actions = {
       lvlWeeks: [1, 8],
       lvlGems: [1, 3],
     };
-    for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, R.GOAL_MAX];
+    for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, key === 'goalLevel' ? R.MAX_LVL : R.GOAL_MAX];
     if (common[name]) {
       const [lo, hi] = common[name];
       store.write([{ path: `settings/${name}`, value: clamp(m.s[name] + d, lo, hi) }]);

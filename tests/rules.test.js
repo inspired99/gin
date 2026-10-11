@@ -410,6 +410,12 @@ test('уровень персонажа: с нуля, плюс один за д�
   assert.equal(level(weeks, 0), 2);
   assert.equal(level(weeks, 1), 2);
 
+  // потолок: выше десятого уровень не растет, и отметок о росте больше нет
+  const long = timeline(make({ settings: { lvlWeeks: 1 } }), day(7 * 14));
+  assert.equal(level(long, 0), 10);
+  assert.equal(long[9].lvlUp[0], true);
+  assert.equal(long[10].lvlUp[0], false);
+
   // числа меняются в настройках: каждая неделя на три бриллианта
   const strict = make({ settings: { lvlWeeks: 1, lvlGems: 3 }, events: [...perfect(0, 0), ...perfect(0, 1)] });
   assert.equal(level(timeline(strict, day(21)), 0), 2);

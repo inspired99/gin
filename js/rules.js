@@ -5,6 +5,8 @@
 /** Уровень лимита кальяна: 7..1 это кальянов в неделю, 0 это один кальян на две недели (цель). */
 export const MAX_LEVEL = 7;
 export const MAX_CLUB = 7;
+/** Потолок уровня персонажа. */
+export const MAX_LVL = 10;
 
 export const DEFAULTS = {
   levelStart: 4,
@@ -95,6 +97,7 @@ export function normalize(settings) {
   s.lvlWeeks = clampInt(s.lvlWeeks, 1, 8);
   s.lvlGems = clampInt(s.lvlGems, 1, 3);
   for (const key of Object.values(GOAL_KEYS)) s[key] = clampInt(s[key], 1, GOAL_MAX);
+  s.goalLevel = Math.min(s.goalLevel, MAX_LVL);
   return s;
 }
 
@@ -241,7 +244,7 @@ function summarize(ctx) {
  * Лимит кальяна человека падает на один после двух его закрытых недель подряд на три бриллианта,
  * лимит клуба вместе с ним, но не ниже одного. Настройка limitSet задает лимиты с нужной недели.
  * Уровень персонажа растет на один за каждые lvlWeeks закрытых недель подряд, где бриллиантов не меньше lvlGems;
- * неделя, на которой он вырос, помечена lvlUp.
+ * неделя, на которой он вырос, помечена lvlUp. Выше MAX_LVL уровень не растет.
  */
 export function timeline(state, today, opts = {}) {
   const s = normalize(state.settings);
@@ -254,6 +257,7 @@ export function timeline(state, today, opts = {}) {
   const clubs = perWho(s.clubStart).map((v) => clampInt(v ?? DEFAULTS.clubStart, 0, MAX_CLUB));
   const fives = [0, 0];
   const runs = [0, 0];
+  const lvls = [0, 0];
   const periodStarts = [s.start, s.start];
   const owed = [0, 0];
   const out = [];
@@ -282,8 +286,9 @@ export function timeline(state, today, opts = {}) {
     if (!closed) continue;
     for (const who of [0, 1]) {
       runs[who] = wk.gems[who] >= s.lvlGems ? runs[who] + 1 : 0;
-      if (runs[who] >= s.lvlWeeks) {
+      if (runs[who] >= s.lvlWeeks && lvls[who] < MAX_LVL) {
         wk.lvlUp[who] = true;
+        lvls[who] += 1;
         runs[who] = 0;
       }
       fives[who] = wk.gems[who] === 3 ? fives[who] + 1 : 0;
@@ -298,7 +303,7 @@ export function timeline(state, today, opts = {}) {
   return out;
 }
 
-/** Уровень персонажа: сколько раз он вырос. Начинается с нуля. */
+/** Уровень персонажа: сколько раз он вырос. Начинается с нуля, потолок MAX_LVL. */
 export function level(weeks, who) {
   return weeks.filter((wk) => wk.lvlUp[who]).length;
 }

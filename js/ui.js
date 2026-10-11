@@ -2,7 +2,7 @@
 // Все пользовательские строки проходят через esc(). Состояние показываем картинкой,
 // слова остаются только там, где без них непонятно.
 
-import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
+import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, MAX_LVL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
 import * as C from './copy.js';
 import { gem, genie, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
 
@@ -75,7 +75,7 @@ function room(m, who) {
   const mood = m.moods[who];
   // джинн это спутник: чем выше уровень персонажа, тем он крупнее
   const lvl = m.levels[who];
-  const grow = (0.7 + 0.1 * Math.min(lvl, 6)).toFixed(1);
+  const grow = (0.7 + (0.6 * Math.min(lvl, MAX_LVL)) / MAX_LVL).toFixed(2);
   const debt = m.debts[who];
   const due = debt.n ? (debt.due < m.today ? 'срок вышел' : C.byEndOf(debt.due)) : '';
   const debtChip = debt.n
@@ -400,7 +400,7 @@ function rules(m) {
         ${gemRow(1, 'превышены оба лимита, или один и спорта мало. Спорт при этом был')}
         ${gemRow(0, 'лимит превышен, спорта не было')}
       </ul>
-      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}. Вместе с уровнем растет джинн.</p>
+      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}, до lvl ${MAX_LVL}. Вместе с уровнем растет джинн.</p>
     </section>
     </section>
   </main>`;
@@ -687,7 +687,7 @@ export function goalSheet(m, sel) {
     <section class="set goal">
       <div class="goal-top"><span class="plate plate-show">${sticker(id)}</span><p>${meta.how}</p></div>
       <ul class="goal-list">${rows}</ul>
-      ${key ? numRow('сколько нужно', key, m.s[key], { min: 1, max: GOAL_MAX, off: m.kind === 'demo' }) : ''}
+      ${key ? numRow('сколько нужно', key, m.s[key], { min: 1, max: id === 'level' ? MAX_LVL : GOAL_MAX, off: m.kind === 'demo' }) : ''}
     </section>`;
 }
 
