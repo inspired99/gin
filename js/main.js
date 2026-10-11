@@ -231,7 +231,14 @@ const actions = {
     openSheet({ type: 'log', day: el.dataset.day || m.today, who: el.dataset.who != null ? Number(el.dataset.who) : me });
   },
   'log-day'(el) {
+    const picked = sheetState.pick;
     sheetState.day = el.dataset.day;
+    sheetState.pick = false; // день выбран, сетка сворачивается, чтобы сразу были видны отметки
+    keepFocus(() => renderSheet(model()));
+    if (picked) sheetBody.querySelector('[data-key="log-pick"]')?.focus({ preventScroll: true });
+  },
+  'log-pick'() {
+    sheetState.pick = !sheetState.pick;
     keepFocus(() => renderSheet(model()));
   },
   'log-who'(el) {

@@ -1343,6 +1343,80 @@ ol.rule-list .rule h2::before {
   font-weight: 600;
 }
 
+/* выбор дня в листе: сетка месяца */
+.daypick {
+  margin-top: var(--s4);
+}
+
+.daypick-title {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.daypick-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--s1);
+  margin-top: var(--s2);
+}
+
+.daypick-dow {
+  font-size: var(--text-xs);
+  text-align: center;
+  color: var(--muted);
+}
+
+.daypick-day {
+  position: relative;
+  min-height: 44px;
+  border: 2px solid transparent;
+  border-radius: var(--r-in);
+  background: var(--tint);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* дни соседнего месяца бледнее, будущие недоступны */
+.daypick-day.is-out {
+  background: none;
+  color: var(--muted);
+}
+
+.daypick-day:disabled {
+  background: none;
+  color: var(--line-strong);
+}
+
+.daypick-day.is-today {
+  border-color: var(--marker);
+}
+
+.daypick-day[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--white);
+  box-shadow: var(--drop-btn);
+  font-weight: 600;
+}
+
+/* в этот день уже есть отметки */
+.daypick-day.has-marks::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  background: var(--ink);
+}
+
+@media (hover: hover) {
+  .daypick-day:hover:not(:disabled):not([aria-pressed='true']) {
+    background: var(--line);
+  }
+}
+
 .opts {
   display: grid;
   gap: var(--s2);

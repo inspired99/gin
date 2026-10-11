@@ -445,17 +445,35 @@ function noteFor(m, kind, day, who, n = 1) {
   }
 }
 
+/** Выбор дня в листе: сетка месяца, доступны дни по сегодня. Точка под числом: в этот день уже есть отметки. */
+function dayPicker(m, sel, targets) {
+  const month = sel.day.slice(0, 7);
+  const head = C.DOW_SHORT.map((d) => `<span class="daypick-dow" aria-hidden="true">${d}</span>`).join('');
+  const cells = monthWeeks(month)
+    .flatMap(weekDays)
+    .map((d) => {
+      const has = m.events.some((e) => e.day === d && targets.includes(e.who));
+      const cls = `${d.slice(0, 7) === month ? '' : ' is-out'}${d === m.today ? ' is-today' : ''}${has ? ' has-marks' : ''}`;
+      return `<button class="daypick-day${cls}" type="button" aria-pressed="${d === sel.day}" data-act="log-day" data-day="${d}" data-key="pick-day-${d}"
+        aria-label="${C.dayShort(d)}${has ? ', есть отметки' : ''}" ${d > m.today ? 'disabled' : ''}>${C.dayNum(d)}</button>`;
+    })
+    .join('');
+  return `<div class="daypick" role="group" aria-label="${C.monthTitle(month)}">
+      <p class="daypick-title">${C.monthTitle(month)}</p>
+      <div class="daypick-grid">${head}${cells}</div>
+    </div>`;
+}
+
 export function logSheet(m, sel) {
   const yesterday = addDays(m.today, -1);
-  const days = [m.today, yesterday];
-  if (!days.includes(sel.day)) days.push(sel.day);
-  const dayLabel = (d) => (d === m.today ? 'сегодня' : d === yesterday ? 'вчера' : C.dayShort(d));
-  const dayBtns = days
+  // сегодня и вчера одним касанием, любой другой день выбирается в сетке месяца
+  const other = sel.day !== m.today && sel.day !== yesterday;
+  const dayBtns = `${[m.today, yesterday]
     .map(
       (d) =>
-        `<button class="seg-btn" type="button" aria-pressed="${d === sel.day}" data-act="log-day" data-day="${d}" data-key="log-day-${d}">${dayLabel(d)}</button>`,
+        `<button class="seg-btn" type="button" aria-pressed="${d === sel.day}" data-act="log-day" data-day="${d}" data-key="log-day-${d}">${d === m.today ? 'сегодня' : 'вчера'}</button>`,
     )
-    .join('');
+    .join('')}<button class="seg-btn" type="button" aria-pressed="${other}" aria-expanded="${Boolean(sel.pick)}" data-act="log-pick" data-key="log-pick">${other ? C.dayShort(sel.day) : 'другой день'}</button>`;
   const whoOpts = [
     [m.me, 'мне'],
     [m.other, esc(m.players[m.other].name)],
@@ -502,6 +520,7 @@ export function logSheet(m, sel) {
     : '';
   return `${sheetHead('отметить')}
     <div class="seg" role="group" aria-label="день">${dayBtns}</div>
+    ${sel.pick ? dayPicker(m, sel, targets) : ''}
     <div class="seg" role="group" aria-label="кому">${whoBtns}</div>
     <div class="opts">
       ${row('gym')}${row('pool')}${row('cowork')}

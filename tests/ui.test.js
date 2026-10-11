@@ -62,6 +62,24 @@ test('листы: отметить, план, меню, достижение', (
   assert.doesNotMatch(sheets[6], /data-act="num"/); // у конца лестницы числа нет
 });
 
+test('отметить за любой день: сетка месяца, будущие дни закрыты', () => {
+  const m = model({});
+  const closed = UI.logSheet(m, { day: TODAY, who: 0 });
+  assert.doesNotMatch(closed, /class="daypick"/);
+  assert.match(closed, /data-act="log-pick"[^>]*>другой день</);
+
+  const open = UI.logSheet(m, { day: addDays(TODAY, -5), who: 0, pick: true });
+  assert.match(open, /class="daypick"/);
+  assert.match(open, /data-act="log-pick"[^>]*>вт, 6 октября</); // выбранный день виден на кнопке
+  const dayBtn = (d) => open.match(new RegExp(`<button class="daypick-day[^>]*data-day="${d}"[^>]*>`))[0];
+  assert.match(dayBtn('2026-10-01'), /aria-pressed="false"/);
+  assert.doesNotMatch(dayBtn('2026-10-01'), /disabled/);
+  assert.match(dayBtn('2026-10-06'), /aria-pressed="true"/);
+  assert.match(dayBtn('2026-10-12'), /disabled/); // завтра
+  assert.doesNotMatch(dayBtn('2026-09-28'), /disabled/); // конец прошлого месяца из первой строки сетки
+  assert.doesNotMatch(open, /undefined|NaN|\[object Object\]/);
+});
+
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);
