@@ -80,6 +80,15 @@ test('отметить за любой день: сетка месяца, буд
   assert.doesNotMatch(open, /undefined|NaN|\[object Object\]/);
 });
 
+test('число кальянов: от одного до шести, у записи его можно поправить', () => {
+  const day = addDays(TODAY, -5); // вторник, у Елисея кальян
+  const html = UI.logSheet(model({}), { day, who: 0 });
+  assert.equal(html.split('data-act="log-qty"').length - 1, 6);
+  assert.equal(html.split('data-act="set-qty"').length - 1, 6);
+  assert.match(html, /data-act="set-qty"[^>]*data-n="6"/);
+  assert.ok(html.indexOf('class="logged"') < html.indexOf('class="opts"')); // записанное стоит над вариантами
+});
+
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);

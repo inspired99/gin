@@ -1482,6 +1482,18 @@ ol.rule-list .rule h2::before {
   margin: 0 0 var(--s1);
 }
 
+/* число кальянов: шесть кнопок в один ряд на телефоне */
+.seg-qty {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--s1);
+}
+
+.seg-qty .seg-btn {
+  padding-inline: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .opt:active {
   transform: translateY(3px);
   box-shadow: none;
@@ -1514,10 +1526,12 @@ ol.rule-list .rule h2::before {
   color: var(--pen);
 }
 
+/* что уже записано в этот день: стоит над вариантами, чтобы запись можно было поправить или убрать */
 .logged {
-  margin-top: var(--s5);
-  padding-top: var(--s3);
-  border-top: 1px solid var(--line);
+  margin-top: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-card);
+  background: var(--tint);
 }
 
 .logged h3,
@@ -1527,10 +1541,22 @@ ol.rule-list .rule h2::before {
 }
 
 .logged li {
+  display: grid;
+  gap: var(--s1);
+}
+
+.logged li + li {
+  margin-top: var(--s2);
+  padding-top: var(--s2);
+  border-top: 1px solid var(--line-strong);
+}
+
+.logged-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s3);
+  min-height: 44px;
 }
 
 .logged-what {
@@ -1538,6 +1564,10 @@ ol.rule-list .rule h2::before {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s1) var(--s2);
+}
+
+.logged .seg {
+  margin: 0 0 var(--s1);
 }
 
 .set {

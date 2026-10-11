@@ -15,6 +15,8 @@ const plus = svg('plus', 'M8 3v10M3 8h10');
 const minus = svg('minus', 'M3 8h10');
 
 const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'день спорта' };
+// сколько кальянов за вечер можно выбрать одним касанием
+const QTY = [1, 2, 3, 4, 5, 6];
 
 // --- шапка -------------------------------------------------------------------
 
@@ -495,12 +497,10 @@ export function logSheet(m, sel) {
       <span class="opt-note">${text}</span>
     </button>`;
   };
-  const qtyBtns = [1, 2, 3]
-    .map(
-      (n) =>
-        `<button class="seg-btn" type="button" aria-pressed="${n === count}" data-act="log-qty" data-n="${n}" data-key="log-qty-${n}" aria-label="кальянов за раз: ${n}">×${n}</button>`,
-    )
-    .join('');
+  const qtyBtns = QTY.map(
+    (n) =>
+      `<button class="seg-btn" type="button" aria-pressed="${n === count}" data-act="log-qty" data-n="${n}" data-key="log-qty-${n}" aria-label="кальянов за раз: ${n}">×${n}</button>`,
+  ).join('');
   const owing = targets.filter((who) => m.debts[who].n > 0);
   const foulById = new Map(m.weeks.flatMap((w) => w.fouls).map((f) => [f.id, f]));
   const logged = m.events.filter((e) => e.day === sel.day && targets.includes(e.who));
@@ -509,8 +509,17 @@ export function logSheet(m, sel) {
         .map((e) => {
           const f = foulById.get(e.id);
           const why = f ? `<span class="hand">${f.reasons.map((r) => REASON[r]).join(', ')}</span>` : '';
-          return `<li><span class="logged-what">${icon(e.kind)} ${C.KIND[e.kind].name}${qty(e) > 1 ? ` ×${qty(e)}` : ''}, ${esc(m.players[e.who].name)} ${why}</span>
-              <button class="link" type="button" data-act="unlog" data-id="${e.id}" data-key="unlog-${e.id}">убрать</button></li>`;
+          const n = qty(e);
+          // у кальяна число правится прямо у записи: отметили один, а было три
+          const fix =
+            e.kind === 'hookah'
+              ? `<div class="seg seg-qty" role="group" aria-label="сколько кальянов было">${QTY.map(
+                  (k) =>
+                    `<button class="seg-btn" type="button" aria-pressed="${k === n}" data-act="set-qty" data-id="${e.id}" data-n="${k}" data-key="set-qty-${e.id}-${k}" aria-label="кальянов было: ${k}">×${k}</button>`,
+                ).join('')}</div>`
+              : '';
+          return `<li><div class="logged-row"><span class="logged-what">${icon(e.kind)} ${C.KIND[e.kind].name}${n > 1 ? ` ×${n}` : ''}, ${esc(m.players[e.who].name)} ${why}</span>
+              <button class="link" type="button" data-act="unlog" data-id="${e.id}" data-key="unlog-${e.id}">убрать</button></div>${fix}</li>`;
         })
         .join('')}</ul></section>`
     : '';
@@ -518,14 +527,14 @@ export function logSheet(m, sel) {
     <div class="seg" role="group" aria-label="день">${dayBtns}</div>
     ${sel.pick ? dayPicker(m, sel, targets) : ''}
     <div class="seg" role="group" aria-label="кому">${whoBtns}</div>
+    ${loggedList}
     <div class="opts">
       ${row('gym')}${row('pool')}${row('cowork')}
       <div class="opts-gap" aria-hidden="true"></div>
-      <div class="opt-qty">${row('hookah')}<div class="seg" role="group" aria-label="сколько кальянов за раз">${qtyBtns}</div></div>
+      <div class="opt-qty">${row('hookah')}<div class="seg seg-qty" role="group" aria-label="сколько кальянов за раз">${qtyBtns}</div></div>
       ${row('club')}
       ${owing.length ? `<div class="opts-gap" aria-hidden="true"></div>${row('penalty', owing)}` : ''}
-    </div>
-    ${loggedList}`;
+    </div>`;
 }
 
 /** План на будущий день: что стоит, то нажато; повторное касание снимает. */

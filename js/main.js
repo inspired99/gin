@@ -258,6 +258,22 @@ const actions = {
     closeSheet();
     if (targets.length) logEvents(kind, day, targets, kind === 'hookah' ? qty || 1 : 1);
   },
+  /** Поправить число кальянов в уже сделанной записи. Лист остается открытым: видно, что получилось. */
+  'set-qty'(el) {
+    const id = el.dataset.id;
+    const ev = (store.state.events || {})[id];
+    if (!ev) return;
+    const was = R.qty(ev);
+    const n = Number(el.dataset.n);
+    if (n === was) return;
+    const m = model();
+    const write = (v) => store.write([{ path: `events/${id}/n`, value: v > 1 ? v : null }]);
+    write(n);
+    toast(`кальян ×${n}`, () => write(was));
+    // стало больше, и за день вышло три и больше: тот же возглас, что при отметке
+    const dayTotal = m.events.filter((e) => e.kind === 'hookah' && e.who === ev.who && e.day === ev.day).reduce((sum, e) => sum + R.qty(e), 0) - was + n;
+    if (n > was && dayTotal > 2) shout('danger');
+  },
   unlog(el) {
     const id = el.dataset.id;
     store.write([{ path: `events/${id}/del`, value: true }]);
