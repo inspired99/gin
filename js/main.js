@@ -72,6 +72,7 @@ function renderSheet(m) {
   const top = sheetBody.scrollTop;
   if (sheetState.type === 'log') sheetBody.innerHTML = UI.logSheet(m, sheetState);
   else if (sheetState.type === 'plan') sheetBody.innerHTML = UI.planSheet(m, sheetState);
+  else if (sheetState.type === 'goal') sheetBody.innerHTML = UI.goalSheet(m, sheetState);
   else sheetBody.innerHTML = UI.menuSheet(m);
   sheetBody.scrollTop = top;
 }
@@ -88,7 +89,8 @@ function render() {
   }
   if (me == null) {
     if (sheet.open) sheet.close();
-    app.innerHTML = UI.whoAreYou(playersOf(state), { demo: isDemo });
+    const weeks = R.timeline(state, R.localDay());
+    app.innerHTML = UI.whoAreYou(playersOf(state), { demo: isDemo, levels: [0, 1].map((who) => R.level(weeks, who)) });
     return;
   }
   const m = model();
@@ -286,6 +288,9 @@ const actions = {
   menu() {
     openSheet({ type: 'menu' });
   },
+  'goal-open'(el) {
+    openSheet({ type: 'goal', id: el.dataset.id });
+  },
   close: closeSheet,
   switch() {
     closeSheet();
@@ -319,7 +324,18 @@ const actions = {
     const name = el.dataset.name;
     const d = Number(el.dataset.d);
     const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-    const common = { hpMax: [1, 40], hitGym: [0, 10], hitCowork: [0, 10], foulHeal: [0, 10], penaltyDays: [1, 14] };
+    const common = {
+      hpMax: [1, 40],
+      hitGym: [0, 10],
+      hitCowork: [0, 10],
+      foulHeal: [0, 10],
+      penaltyDays: [1, 14],
+      needSport: [0, 14],
+      needCowork: [0, 7],
+      lvlWeeks: [1, 8],
+      lvlGems: [1, 3],
+    };
+    for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, R.GOAL_MAX];
     if (common[name]) {
       const [lo, hi] = common[name];
       store.write([{ path: `settings/${name}`, value: clamp(m.s[name] + d, lo, hi) }]);
@@ -439,14 +455,15 @@ function boot() {
     store = createStore({ room: 'demo', adapter: memoryAdapter(demoState(R.localDay())), persist: false });
     const who = params.get('me');
     if (who === '0' || who === '1') me = Number(who);
-    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|plan|menu, &other показывает друга, &view=month включает месяц
+    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|plan|menu|goal, &other показывает друга, &view=month включает месяц
     const open = params.get('open');
     if (open === 'stats' || open === 'rules') screen = open;
+    if (open === 'goal') screen = 'stats';
     if (params.has('other')) showOther = true;
     if (['week', 'month'].includes(params.get('view'))) mode = params.get('view');
-    if (me != null && ['log', 'menu', 'plan'].includes(open)) {
+    if (me != null && ['log', 'menu', 'plan', 'goal'].includes(open)) {
       const day = R.localDay();
-      const state = { log: { type: 'log', day, who: me }, plan: { type: 'plan', day: R.addDays(day, 1), who: me }, menu: { type: 'menu' } }[open];
+      const state = { log: { type: 'log', day, who: me }, plan: { type: 'plan', day: R.addDays(day, 1), who: me }, menu: { type: 'menu' }, goal: { type: 'goal', id: 'sport' } }[open];
       queueMicrotask(() => openSheet(state));
     }
   } else {

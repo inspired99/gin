@@ -19,6 +19,7 @@ test('главная: неделя и месяц, один и вдвоем', () 
       assert.match(html, /class="scene/);
       assert.match(html, mode === 'week' ? /class="diary"/ : /class="cal"/);
       assert.equal(html.split('class="scene').length - 1, showOther ? 2 : 1);
+      assert.match(html, /class="gems/);
       assert.doesNotMatch(html, /undefined|NaN|\[object Object\]/);
     }
   }
@@ -36,10 +37,12 @@ test('итоги и правила', () => {
     assert.match(html, /data-act="back"/);
     assert.doesNotMatch(html, /undefined|NaN|\[object Object\]/);
   }
-  assert.equal(UI.page(model({ screen: 'stats' })).split('class="cal"').length - 1, 2); // в итогах оба всегда
+  const stats = UI.page(model({ screen: 'stats' }));
+  assert.equal(stats.split('class="cal"').length - 1, 2); // в итогах оба всегда
+  assert.equal(stats.split('data-act="goal-open"').length - 1, 12); // шесть достижений у каждого
 });
 
-test('листы: отметить, план, меню', () => {
+test('листы: отметить, план, меню, достижение', () => {
   const m = model({});
   const sheets = [
     UI.logSheet(m, { day: TODAY, who: 0 }),
@@ -47,12 +50,16 @@ test('листы: отметить, план, меню', () => {
     UI.logSheet(model({ me: 1 }), { day: TODAY, who: 1 }), // у Павла долг: есть строка штрафа
     UI.planSheet(m, { day: addDays(TODAY, 2), who: 0 }),
     UI.menuSheet(m),
+    UI.goalSheet(m, { id: 'sport' }),
+    UI.goalSheet(m, { id: 'goal' }),
   ];
   for (const html of sheets) {
     assert.ok(html.length > 200);
     assert.doesNotMatch(html, /undefined|NaN|\[object Object\]/);
   }
   assert.match(sheets[2], /data-kind="penalty"/);
+  assert.match(sheets[5], /data-name="goalSport"/); // цель меняется в листе достижения
+  assert.doesNotMatch(sheets[6], /data-act="num"/); // у конца лестницы числа нет
 });
 
 test('первый запуск, выбор персонажа, загрузка', () => {

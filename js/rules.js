@@ -8,14 +8,30 @@ export const MAX_CLUB = 7;
 
 export const DEFAULTS = {
   levelStart: 4,
-  clubStart: 3,
+  clubStart: 2,
   hpMax: 7,
   hitGym: 2,
   hitCowork: 1,
   foulHeal: 3,
   baseline: 5,
   penaltyDays: 2,
+  // норма недели для трех бриллиантов
+  needSport: 2,
+  needCowork: 1,
+  // уровень персонажа растет за недели подряд с таким числом бриллиантов
+  lvlWeeks: 2,
+  lvlGems: 2,
+  // цели достижений в итогах
+  goalSport: 10,
+  goalCowork: 5,
+  goalClean: 7,
+  goalGenie: 3,
+  goalGems: 1,
 };
+
+/** Достижения с числом: в какой настройке лежит цель. */
+export const GOAL_KEYS = { sport: 'goalSport', cowork: 'goalCowork', clean: 'goalClean', genie: 'goalGenie', gems: 'goalGems' };
+export const GOAL_MAX = 99;
 
 // --- даты ---------------------------------------------------------------
 
@@ -79,6 +95,11 @@ export function normalize(settings) {
   s.hitCowork = clampInt(s.hitCowork, 0, 10);
   s.foulHeal = clampInt(s.foulHeal, 0, 10);
   s.penaltyDays = clampInt(s.penaltyDays, 1, 14);
+  s.needSport = clampInt(s.needSport, 0, 14);
+  s.needCowork = clampInt(s.needCowork, 0, 7);
+  s.lvlWeeks = clampInt(s.lvlWeeks, 1, 8);
+  s.lvlGems = clampInt(s.lvlGems, 1, 3);
+  for (const key of Object.values(GOAL_KEYS)) s[key] = clampInt(s[key], 1, GOAL_MAX);
   return s;
 }
 
@@ -110,8 +131,23 @@ function isSportDay(mine, plans, who, day) {
 }
 
 // --- неделя ---------------------------------------------------------------
-// Все личное: у каждого свой лимит, свой джинн, своя оценка. Поля недели, которые
+// Все личное: у каждого свой лимит, свой джинн, свои бриллианты. Поля недели, которые
 // зависят от человека, это массивы из двух значений по индексу игрока.
+
+/**
+ * Бриллианты недели, от нуля до трех.
+ * 3: кальян и клуб в лимите, спорта и коворкинга не меньше нормы.
+ * 2: лимиты целы, но нормы нет; или норма есть, но превышен один лимит.
+ * 1: превышены оба лимита либо превышен один и нормы нет, но спорт был.
+ * 0: лимит превышен, спорта не было.
+ */
+export function gemsOf({ overHookah, overClub, sport, cowork }, s) {
+  const over = (overHookah ? 1 : 0) + (overClub ? 1 : 0);
+  const norm = sport >= s.needSport && cowork >= s.needCowork;
+  if (!over) return norm ? 3 : 2;
+  if (!sport) return 0;
+  return over === 1 && norm ? 2 : 1;
+}
 
 function summarize(ctx) {
   const { s, events, plans, w, end, levels, clubs, periodStarts, closed, future, today, owed } = ctx;
@@ -144,7 +180,9 @@ function summarize(ctx) {
     heal: [],
     hp: [],
     debt: [],
-    grade: [],
+    over: [],
+    gems: [],
+    lvlUp: [false, false],
   };
 
   for (const who of [0, 1]) {
@@ -209,7 +247,10 @@ function summarize(ctx) {
     wk.heal.push(heal);
     wk.hp.push(hp);
     wk.debt.push(debt);
-    wk.grade.push(future ? null : debt > 0 ? 2 : hp > 0 ? 3 : list.length ? 4 : 5);
+    const over = { hookah: used > rung.n, club: clubsDone.length > clubLimit };
+    wk.over.push(over);
+    const sport = counts.gym[who] + counts.pool[who];
+    wk.gems.push(future ? null : gemsOf({ overHookah: over.hookah, overClub: over.club, sport, cowork: counts.cowork[who] }, s));
   }
   wk.fouls.sort(byTime);
   return wk;
@@ -217,8 +258,10 @@ function summarize(ctx) {
 
 /**
  * Все недели от первой до текущей (или до opts.through, если нужна будущая).
- * Лимит кальяна человека падает на один после двух его закрытых недель подряд с оценкой 5,
+ * Лимит кальяна человека падает на один после двух его закрытых недель подряд на три бриллианта,
  * лимит клуба вместе с ним, но не ниже одного. Настройка limitSet задает лимиты с нужной недели.
+ * Уровень персонажа растет на один за каждые lvlWeeks закрытых недель подряд, где бриллиантов не меньше lvlGems;
+ * неделя, на которой он вырос, помечена lvlUp.
  */
 export function timeline(state, today, opts = {}) {
   const s = normalize(state.settings);
@@ -230,6 +273,7 @@ export function timeline(state, today, opts = {}) {
   const levels = perWho(s.levelStart).map((v) => clampInt(v ?? DEFAULTS.levelStart, 0, MAX_LEVEL));
   const clubs = perWho(s.clubStart).map((v) => clampInt(v ?? DEFAULTS.clubStart, 0, MAX_CLUB));
   const fives = [0, 0];
+  const runs = [0, 0];
   const periodStarts = [s.start, s.start];
   const owed = [0, 0];
   const out = [];
@@ -257,7 +301,12 @@ export function timeline(state, today, opts = {}) {
     out.push(wk);
     if (!closed) continue;
     for (const who of [0, 1]) {
-      fives[who] = wk.grade[who] === 5 ? fives[who] + 1 : 0;
+      runs[who] = wk.gems[who] >= s.lvlGems ? runs[who] + 1 : 0;
+      if (runs[who] >= s.lvlWeeks) {
+        wk.lvlUp[who] = true;
+        runs[who] = 0;
+      }
+      fives[who] = wk.gems[who] === 3 ? fives[who] + 1 : 0;
       if (fives[who] >= 2 && levels[who] > 0) {
         levels[who] -= 1;
         if (clubs[who] > 1) clubs[who] -= 1;
@@ -269,16 +318,9 @@ export function timeline(state, today, opts = {}) {
   return out;
 }
 
-/** Недели человека подряд с оценкой 4 или 5, считая от последней закрытой. */
-export function streak(weeks, who) {
-  let n = 0;
-  for (let i = weeks.length - 1; i >= 0; i--) {
-    const wk = weeks[i];
-    if (!wk.closed) continue;
-    if (wk.grade[who] >= 4) n += 1;
-    else break;
-  }
-  return n;
+/** Уровень персонажа: сколько раз он вырос. Начинается с нуля. */
+export function level(weeks, who) {
+  return weeks.filter((wk) => wk.lvlUp[who]).length;
 }
 
 /** Неотработанные штрафы человека на сегодня и срок самого раннего. */
@@ -406,24 +448,28 @@ export function planBlock(state, weeks, { who, kind, day }) {
 }
 
 /** Наклейки. У каждого свой набор. */
+/**
+ * Достижения человека. У числовых есть have (сколько набрано) и need (цель из настроек).
+ * У последнего числа нет: это конец лестницы, один кальян на две недели.
+ */
 export function stickers(state, weeks, today) {
   const s = normalize(state.settings);
   const events = live(state.events).filter((e) => e.day <= today);
-  const closed = weeks.filter((w) => w.closed);
+  const past = weeks.filter((w) => !w.future);
   const start = perWho(s.levelStart).map((v) => clampInt(v ?? DEFAULTS.levelStart, 0, MAX_LEVEL));
   const out = [];
   for (const who of [0, 1]) {
-    const mine = events.filter((e) => e.who === who);
-    const low = weeks.reduce((m, w) => (w.future ? m : Math.min(m, w.level[who])), start[who]);
-    out.push(
-      { id: 'first5', who, got: closed.some((w) => w.grade[who] === 5) },
-      { id: 'rung3', who, got: low <= 3 },
-      { id: 'rung2', who, got: low <= 2 },
-      { id: 'rung1', who, got: low <= 1 },
-      { id: 'goal', who, got: low <= 0 },
-      { id: 'clean7', who, got: longestCleanRun(state, who, today) >= 7 },
-      { id: 'gym10', who, got: mine.filter((e) => SPORT.includes(e.kind)).length >= 10 },
-    );
+    const count = (kinds) => events.filter((e) => e.who === who && kinds.includes(e.kind)).length;
+    const low = past.reduce((m, w) => Math.min(m, w.level[who]), start[who]);
+    const have = {
+      sport: count(SPORT),
+      cowork: count(['cowork']),
+      clean: longestCleanRun(state, who, today),
+      genie: past.filter((w) => w.hp[who] === 0).length,
+      gems: past.filter((w) => w.closed && w.gems[who] === 3).length,
+    };
+    for (const [id, key] of Object.entries(GOAL_KEYS)) out.push({ id, who, have: have[id], need: s[key], got: have[id] >= s[key] });
+    out.push({ id: 'goal', who, have: null, need: null, got: low <= 0 });
   }
   return out;
 }
@@ -434,5 +480,5 @@ export function preWeek(state, w) {
   const counts = {};
   for (const kind of KINDS) counts[kind] = [0, 0];
   for (const e of live(state.events)) if (e.day >= w && e.day <= end && counts[e.kind]) counts[e.kind][e.who] += qty(e);
-  return { start: w, end, pre: true, counts, fouls: [], grade: [null, null] };
+  return { start: w, end, pre: true, counts, fouls: [], gems: [null, null], lvlUp: [false, false] };
 }

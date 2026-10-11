@@ -2,9 +2,9 @@
 // Все пользовательские строки проходят через esc(). Состояние показываем картинкой,
 // слова остаются только там, где без них непонятно.
 
-import { MAX_CLUB, MAX_LEVEL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
+import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
 import * as C from './copy.js';
-import { genie, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
+import { gem, genie, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
 
 const { esc } = C;
 
@@ -99,7 +99,7 @@ function room(m, who) {
       ${genie(state, { size: 96, cls: `room-genie${state === 'down' ? '' : ' bob bob-slow'}`, label: bossLabel })}
     </div>
     <div class="stock">
-      <p class="who">${name}</p>
+      <p class="who"><span class="who-name">${name}</span><span class="lvl" aria-label="уровень ${m.levels[who]}">lvl ${m.levels[who]}</span></p>
       <dl class="stats">
         <div class="stat"><dt><span>полезное за неделю</span></dt><dd class="goods">${good}</dd></div>
         ${stat('hookah', 'кальян', used(h, period))}
@@ -175,22 +175,13 @@ function diaryCell(m, day, who) {
     aria-label="${name}, ${C.dayShort(day)}: ${what}. отметить">${html}</button>${add ? `<div class="cell cell-plan">${add}</div>` : ''}</td>`;
 }
 
-function gradeMark(m, wk, who, cls = '') {
-  const g = wk.grade[who];
+/** Бриллианты недели: три места, цветных столько, сколько получено. */
+function gemsMark(m, wk, who, small = false) {
+  const n = wk.gems[who];
   const name = esc(m.players[who].name);
-  return `<span class="grade hand${wk.closed ? '' : ' is-open'}${cls}" role="img" aria-label="${name}: оценка${wk.closed ? '' : ' пока'} ${g}, ${C.gradeWhy(wk, who)}">${g}</span>`;
-}
-
-function legend(full) {
-  const kinds = full
-    ? ['gym', 'pool', 'cowork', 'hookah', 'club', 'penalty'].map((k) => `<span>${icon(k)} ${k === 'penalty' ? 'штраф' : C.KIND[k].name}</span>`).join('')
-    : '';
-  return `<p class="legend">
-      ${kinds}
-      <span>${chip('gym', 'is-fact', '')} было</span>
-      <span>${chip('gym', 'is-plan', '')} в плане</span>
-      <span>${chip('hookah', 'is-foul', '')} нарушение</span>
-    </p>`;
+  const pics = [0, 1, 2].map((i) => gem(i < n, { scale: small ? 1 : 2 })).join('');
+  return `<span class="gems${small ? ' gems-sm' : ''}${wk.closed ? '' : ' is-open'}" role="img"
+    aria-label="${name}: ${C.nGems(n)} из 3${wk.closed ? '' : ' пока'}, ${C.gemsWhy(wk, who, m.s)}">${pics}</span>`;
 }
 
 /** Неделя трекером: строка на день, в ней отметки. При показе друга столбцов два. */
@@ -211,10 +202,12 @@ function weekBlock(m) {
     </tr>`,
     )
     .join('');
-  const grades =
+  const pending = wk.closed ? '' : '<span class="gems-note">пока</span>';
+  const up = (who) => (wk.lvlUp[who] ? '<span class="lvl lvl-up">lvl up</span>' : '');
+  const total =
     wk.pre || wk.future
       ? ''
-      : `<tfoot><tr class="grades"><th scope="row">оценка</th>${m.shown.map((who) => `<td>${gradeMark(m, wk, who)}</td>`).join('')}</tr></tfoot>`;
+      : `<tfoot><tr><th scope="row">итог</th>${m.shown.map((who) => `<td>${gemsMark(m, wk, who)}${pending}${up(who)}</td>`).join('')}</tr></tfoot>`;
   return `<div class="week-head">
       <h2 id="week-title">${title}</h2>
       <p class="week-range">${C.weekRange(wk.start)}</p>
@@ -222,14 +215,14 @@ function weekBlock(m) {
     <table class="diary">
       ${head}
       <tbody>${rows}</tbody>
-      ${grades}
+      ${total}
     </table>`;
 }
 
-/** Сетка месяца, как календарь в заметках: семь столбцов по дням недели, справа оценка недели. */
+/** Сетка месяца, как календарь в заметках: семь столбцов по дням недели, справа бриллианты недели. */
 function calendarGrid(m, who) {
   const name = esc(m.players[who].name);
-  const head = `${C.DOW_SHORT.map((d) => `<th scope="col">${d}</th>`).join('')}<th scope="col" class="cal-grade"><span class="sr">оценка недели</span></th>`;
+  const head = `${C.DOW_SHORT.map((d) => `<th scope="col">${d}</th>`).join('')}<th scope="col" class="cal-gems"><span class="sr">бриллианты недели</span></th>`;
   const rows = monthWeeks(m.month)
     .map((w) => {
       const wk = m.weeks.find((x) => x.start === w);
@@ -244,8 +237,8 @@ function calendarGrid(m, who) {
             data-key="cal-${who}-${day}" aria-label="${name}, ${C.dayShort(day)}: ${what}. ${future ? 'добавить в план' : 'отметить'}"><span class="cal-num">${C.dayNum(day)}</span>${html}</button></td>`;
         })
         .join('');
-      const grade = wk && !wk.future ? gradeMark(m, wk, who, ' grade-sm') : '';
-      return `<tr>${days}<td class="cal-grade">${grade}</td></tr>`;
+      const gems = wk && !wk.future ? gemsMark(m, wk, who, true) : '';
+      return `<tr>${days}<td class="cal-gems">${gems}</td></tr>`;
     })
     .join('');
   return `<table class="cal">
@@ -286,7 +279,6 @@ function diary(m) {
       ${month ? monthNav(m) : weekNav(m)}
     </div>
     ${month ? monthBlock(m) : weekBlock(m)}
-    ${legend(false)}
     <span class="leaves" aria-hidden="true">${prop('leaf-orange', 40)}${prop('leaf-yellow', 32)}</span>
   </section>`;
 }
@@ -304,16 +296,25 @@ function home(m) {
 
 // --- итоги: календарь месяца ---------------------------------------------------
 
+/** Сколько набрано в достижении. У цели числа нет, там текущий лимит кальяна. */
+function goalHave(m, st) {
+  if (st.need != null) return `${st.have} из ${st.need}`;
+  return st.got ? 'достигнуто' : `пока ${m.cur.level[st.who]} в неделю`;
+}
+
 function person(m, who) {
   const name = esc(m.players[who].name);
   const slots = m.stickers
     .filter((st) => st.who === who)
     .map((st) => {
       const meta = C.STICKER[st.id];
-      return `<li class="slot${st.got ? ' is-got' : ''}" title="${st.got ? meta.name : meta.how}">
+      const have = goalHave(m, st);
+      return `<li class="${st.got ? 'is-got' : ''}"><button class="slot" type="button" data-act="goal-open" data-id="${st.id}" data-key="goal-${who}-${st.id}"
+        aria-label="${name}, ${meta.name}: ${have}${st.got ? ', получено' : ''}. открыть">
         <span class="plate">${sticker(st.id)}</span>
         <span class="slot-name">${meta.name}</span>
-      </li>`;
+        <span class="slot-have">${have}</span>
+      </button></li>`;
     })
     .join('');
   return `<section class="person" aria-label="${name}">
@@ -325,12 +326,9 @@ function person(m, who) {
       </div>
     </div>
     ${calendarGrid(m, who)}
+    <h3 class="slots-title">достижения</h3>
     <ul class="slots">${slots}</ul>
   </section>`;
-}
-
-function legendPanel() {
-  return `<section class="legend-panel" aria-label="что значат значки">${legend(true)}</section>`;
 }
 
 /** Сравнение за месяц: кто сколько, лучший результат подчеркнут. */
@@ -343,6 +341,9 @@ function versus(m) {
     const cells = values.map((v, who) => `<td class="${who === best ? 'is-better' : ''}">${v}</td>`).join('');
     return `<tr><th scope="row">${pic}<span>${label}</span></th>${cells}</tr>`;
   };
+  // бриллианты закрытых недель из сетки этого месяца
+  const inGrid = monthWeeks(m.month);
+  const gems = [0, 1].map((who) => m.weeks.filter((w) => w.closed && inGrid.includes(w.start)).reduce((n, w) => n + w.gems[who], 0));
   const head = [0, 1].map((who) => `<th scope="col">${hero(who, 'idle', { size: 48 })}<span>${esc(m.players[who].name)}</span></th>`).join('');
   return `<table class="versus">
     <thead><tr><th scope="col"><span class="sr">что сравниваем</span></th>${head}</tr></thead>
@@ -352,6 +353,8 @@ function versus(m) {
       ${row(chip('hookah', 'is-foul', ''), 'нарушения', fouls, true)}
       ${row(icon('gym'), 'спорт и бассейн', count(...SPORT), false)}
       ${row(icon('cowork'), 'коворкинг', count('cowork'), false)}
+      ${row(gem(true), 'бриллианты', gems, false)}
+      ${row('<span class="lvl">lvl</span>', 'уровень', m.levels, false)}
     </tbody>
   </table>`;
 }
@@ -368,7 +371,6 @@ function stats(m) {
     </section>
     ${person(m, 0)}
     ${person(m, 1)}
-    ${legendPanel()}
   </main>`;
 }
 
@@ -376,13 +378,17 @@ function stats(m) {
 
 function rules(m) {
   const item = (pic, title, body) => `<li class="rule"><span class="rule-pic">${pic}</span><div><h2>${title}</h2><p>${body}</p></div></li>`;
-  const grade = (n, text) => `<li><span class="grade grade-sm hand">${n}</span><span>${text}</span></li>`;
+  const gemRow = (n, text) => `<li><span class="gems">${[0, 1, 2].map((i) => gem(i < n)).join('')}</span><span>${text}</span></li>`;
   const s = m.s;
+  const lvlRule =
+    s.lvlWeeks > 1
+      ? `за каждые ${C.nWeeks(s.lvlWeeks)} подряд, в которых бриллиантов ${s.lvlGems}${s.lvlGems < 3 ? ' или больше' : ''}`
+      : `за каждую неделю, в которой бриллиантов ${s.lvlGems}${s.lvlGems < 3 ? ' или больше' : ''}`;
   return `<main id="main" class="page">
     <section class="rules-panel">
     <div class="rules-head"><h1 class="page-title">правила</h1>${prop('lantern', 76)}</div>
     <ol class="rule-list">
-      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и клубов, он написан под комнатой: «кальян 1 из 3». После двух пятерок подряд лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
+      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и клубов, он написан под комнатой: «кальян 1 из 3». После двух недель подряд на три бриллианта лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
       ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.')}
       ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день спорта чистый', 'Спорт или бассейн стоят в плане или уже были: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
@@ -391,14 +397,15 @@ function rules(m) {
       ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Сверх лимита, вне плана или в день спорта. За каждое спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Второе за неделю стоит два штрафа, третье три.`)}
       ${item(genie('up', { size: 48 }), 'джинн', `У каждого свой, здоровье ${s.hpMax}. Спорт и бассейн снимают по ${s.hitGym}, коворкинг без кальяна ${s.hitCowork}, каждое раз в день. Нарушение возвращает ${s.foulHeal}. Штрафное занятие не считается.`)}
     </ul>
-    <section class="grade-key" aria-labelledby="grade-key-title">
-      <h2 id="grade-key-title">оценка недели</h2>
+    <section class="gem-key" aria-labelledby="gem-key-title">
+      <h2 id="gem-key-title">бриллианты недели</h2>
       <ul>
-        ${grade(5, 'джинн побежден, нарушений нет')}
-        ${grade(4, 'джинн побежден, штраф отработан')}
-        ${grade(3, 'джинн не побежден')}
-        ${grade(2, 'остался неотработанный штраф')}
+        ${gemRow(3, `кальян и клуб в лимите, спорт ${s.needSport}+, коворкинг ${s.needCowork}+`)}
+        ${gemRow(2, 'лимиты целы, но спорта или коворкинга мало. Или всего хватает, но превышен один лимит')}
+        ${gemRow(1, 'превышены оба лимита, или один и спорта мало. Спорт при этом был')}
+        ${gemRow(0, 'лимит превышен, спорта не было')}
       </ul>
+      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}.</p>
     </section>
     </section>
   </main>`;
@@ -573,7 +580,19 @@ export function menuSheet(m) {
     <section class="set">
       <h3>лимиты в неделю, начиная ${m.limitWeekIsFirst ? 'с первой' : 'с этой'}</h3>
       ${limits}
-      <p class="hint">Лимит кальяна сам падает на один после двух пятерок подряд.</p>
+      <p class="hint">Лимит кальяна сам падает на один после двух недель подряд на три бриллианта.</p>
+    </section>
+    <section class="set">
+      <h3>три бриллианта за неделю</h3>
+      <p class="hint">Кальян и клуб в лимите, а еще:</p>
+      ${numRow('спорт и бассейн, не меньше', 'needSport', s.needSport, { min: 0, max: 14, off })}
+      ${numRow('коворкинг, не меньше', 'needCowork', s.needCowork, { min: 0, max: 7, off })}
+    </section>
+    <section class="set">
+      <h3>уровень персонажа</h3>
+      <p class="hint">Растет на один за недели подряд, в которых хватает бриллиантов.</p>
+      ${numRow('недель подряд', 'lvlWeeks', s.lvlWeeks, { min: 1, max: 8, off })}
+      ${numRow('бриллиантов за неделю, не меньше', 'lvlGems', s.lvlGems, { min: 1, max: 3, off })}
     </section>
     <section class="set">
       <h3>джинн</h3>
@@ -616,6 +635,25 @@ export function menuSheet(m) {
 
 // --- первый запуск и выбор персонажа ---------------------------------------------
 
+/** Лист достижения: что считается, сколько у каждого и сколько нужно. Число меняется здесь же. */
+export function goalSheet(m, sel) {
+  const id = C.STICKER[sel.id] ? sel.id : 'sport';
+  const meta = C.STICKER[id];
+  const key = GOAL_KEYS[id];
+  const rows = [0, 1]
+    .map((who) => {
+      const st = m.stickers.find((x) => x.id === id && x.who === who);
+      return `<li class="goal-who${st.got ? ' is-got' : ''}">${hero(who, 'idle', { size: 44 })}<span>${esc(m.players[who].name)}</span><b>${goalHave(m, st)}</b></li>`;
+    })
+    .join('');
+  return `${sheetHead(meta.name)}
+    <section class="set goal">
+      <div class="goal-top"><span class="plate plate-show">${sticker(id)}</span><p>${meta.how}</p></div>
+      <ul class="goal-list">${rows}</ul>
+      ${key ? numRow('сколько нужно', key, m.s[key], { min: 1, max: GOAL_MAX, off: m.kind === 'demo' }) : ''}
+    </section>`;
+}
+
 export function welcome({ startDay, local, missing }) {
   const card = (who, name) => `<div class="pick">
       ${hero(who, 'idle', { size: 96 })}
@@ -637,10 +675,11 @@ export function welcome({ startDay, local, missing }) {
   </main>`;
 }
 
-export function whoAreYou(players, { demo = false } = {}) {
+export function whoAreYou(players, { demo = false, levels = [0, 0] } = {}) {
   const btn = (who) => `<button class="pick pick-btn" type="button" data-act="i-am" data-who="${who}">
       ${hero(who, 'idle', { size: 136 })}
       <span class="pick-name">${esc(players[who].name)}</span>
+      <span class="lvl">lvl ${levels[who]}</span>
     </button>`;
   return `<main class="welcome" id="main">
     <h1 class="line">кто заходит</h1>

@@ -6,13 +6,13 @@ import {
   cleanDays,
   debtInfo,
   dow,
+  level,
   monthWeeks,
   mood,
   planBlock,
   preview,
   shoutFor,
   stickers,
-  streak,
   timeline,
   weekOf,
 } from '../js/rules.js';
@@ -38,7 +38,7 @@ function make({ settings = {}, events = [], plans = [] } = {}) {
   return state;
 }
 
-/** Неделя на пятерку для одного человека: три тренировки и коворкинг, нарушений нет. */
+/** Неделя на три бриллианта для одного человека: три тренировки и коворкинг, нарушений нет. */
 function perfect(who, weekIndex) {
   const base = weekIndex * 7;
   return [...[0, 2, 4].map((d) => [who, 'gym', day(base + d)]), [who, 'cowork', day(base + 1)]];
@@ -64,14 +64,14 @@ test('до первой недели недель нет', () => {
   assert.deepEqual(timeline(make(), '2026-10-10'), []);
 });
 
-test('пустая первая неделя: у каждого свой джинн на 7, оценка 3, лимит 4 и 3', () => {
+test('пустая первая неделя: у каждого свой джинн на 7, два бриллианта, лимит 4 и 2', () => {
   const [wk] = timeline(make(), day(2));
   assert.equal(wk.index, 1);
   assert.deepEqual(wk.limit, [4, 4]);
-  assert.deepEqual(wk.clubLimit, [3, 3]);
+  assert.deepEqual(wk.clubLimit, [2, 2]);
   assert.equal(wk.hpMax, 7);
   assert.deepEqual(wk.hp, [7, 7]);
-  assert.deepEqual(wk.grade, [3, 3]);
+  assert.deepEqual(wk.gems, [2, 2]);
   assert.deepEqual(wk.hearts[0], { max: 4, used: 0, left: 4 });
 });
 
@@ -116,7 +116,7 @@ test('кальян без плана: нарушение, свой джинн л
   assert.deepEqual(wk.fouls[0].reasons, ['unplanned']);
   assert.deepEqual(wk.hp, [10, 7]);
   assert.deepEqual(wk.heal, [3, 0]);
-  assert.deepEqual(wk.grade, [2, 3]);
+  assert.deepEqual(wk.gems, [2, 2]); // кальян вне плана, но в лимите
 });
 
 test('план, поставленный в тот же день, не считается; в день создания дневника считается', () => {
@@ -256,7 +256,7 @@ test('два кальяна за вечер: одна запись тратит 
 });
 
 test('клуб сверх лимита: нарушение', () => {
-  const state = make({ events: [0, 1, 2, 3].map((d) => [1, 'club', day(d)]) });
+  const state = make({ events: [0, 1, 2].map((d) => [1, 'club', day(d)]) });
   const [wk] = timeline(state, day(3));
   assert.equal(wk.fouls.length, 1);
   assert.equal(wk.fouls[0].kind, 'club');
@@ -331,25 +331,31 @@ test('штрафная тренировка джинна не бьет', () => {
   assert.deepEqual(timeline(state, day(1))[0].damage, [0, 0]);
 });
 
-test('оценки личные: 5, 4, 3 и 2', () => {
-  // нарушение лечит джинна на 3, поэтому для четверки нужен запас ударов
-  const extra = [
-    [0, 'gym', day(5)],
-    [0, 'gym', day(6)],
-  ];
+test('бриллианты личные: от нуля до трех', () => {
+  const gems = (events, settings) => timeline(make({ events, settings }), day(7))[0].gems;
+  const clubs3 = [0, 1, 2].map((d) => [0, 'club', day(d)]); // лимит клуба 2
+  const hookah5 = [0, 1, 2, 3, 4].map((d) => [0, 'hookah', day(d)]); // лимит кальяна 4
 
-  const four = make({
-    events: [...perfectWeek(0), ...extra, [0, 'hookah', day(3)], [0, 'penalty', day(4)]],
-  });
-  const fourWeek = timeline(four, day(7))[0];
-  assert.deepEqual(fourWeek.hp, [0, 0]);
-  assert.deepEqual(fourWeek.grade, [4, 5]);
-
-  const three = make({ events: [...perfect(1, 0), [0, 'gym', day(0)]] });
-  assert.deepEqual(timeline(three, day(7))[0].grade, [3, 5]);
-
-  const two = make({ events: [...perfectWeek(0), ...extra, [0, 'hookah', day(3)]] });
-  assert.deepEqual(timeline(two, day(10))[0].grade, [2, 5]);
+  // норма набрана, лимиты целы: три. У второго пусто: лимиты целы, нормы нет, два
+  assert.deepEqual(gems(perfect(0, 0)), [3, 2]);
+  // бассейн считается как спорт
+  assert.equal(gems([[0, 'pool', day(0)], [0, 'gym', day(2)], [0, 'cowork', day(3)]])[0], 3);
+  // лимиты целы, спорт один раз: два
+  assert.equal(gems([[0, 'gym', day(0)], [0, 'cowork', day(1)]])[0], 2);
+  // норма набрана, превышен один лимит: два
+  assert.equal(gems([...perfect(0, 0), ...clubs3])[0], 2);
+  assert.equal(gems([...perfect(0, 0), ...hookah5])[0], 2);
+  // превышены оба лимита, спорт был: один
+  assert.equal(gems([...perfect(0, 0), ...clubs3, ...hookah5])[0], 1);
+  // превышен один лимит и нормы нет, но спорт был: один
+  assert.equal(gems([[0, 'gym', day(0)], ...clubs3])[0], 1);
+  // лимит превышен, спорта не было: ноль
+  assert.equal(gems(clubs3)[0], 0);
+  assert.equal(gems([[0, 'cowork', day(0)], ...hookah5])[0], 0);
+  // штрафное занятие спортом не считается
+  assert.equal(gems([[0, 'penalty', day(0)], ...clubs3])[0], 0);
+  // норма меняется в настройках
+  assert.equal(gems([[0, 'gym', day(0)]], { needSport: 1, needCowork: 0 })[0], 3);
 });
 
 test('штраф за воскресный срыв можно отработать до вторника', () => {
@@ -362,10 +368,10 @@ test('штраф за воскресный срыв можно отработа�
       [0, 'penalty', day(8)],
     ],
   });
-  assert.equal(timeline(state, day(9))[0].grade[0], 4);
+  assert.equal(timeline(state, day(9))[0].debt[0], 0);
 });
 
-test('лимит личный: падает на один после двух своих пятерок подряд, клуб вместе с ним', () => {
+test('лимит личный: падает на один после двух своих недель на три бриллианта, клуб вместе с ним', () => {
   const events = [...perfect(0, 0), ...perfect(0, 1), ...perfect(0, 2), ...perfect(1, 0), ...perfect(1, 2)];
   const weeks = timeline(make({ events }), day(21));
   assert.deepEqual(
@@ -379,10 +385,37 @@ test('лимит личный: падает на один после двух с
   );
   assert.deepEqual(
     weeks.map((w) => w.clubLimit[0]),
-    [3, 3, 2, 2],
+    [2, 2, 1, 1],
   );
-  assert.equal(streak(weeks, 0), 3);
-  assert.equal(streak(weeks, 1), 1);
+});
+
+test('уровень персонажа: с нуля, плюс один за две недели подряд от двух бриллиантов', () => {
+  const clubs3 = (who, from) => [0, 1, 2].map((d) => [who, 'club', day(from + d)]); // лимит клуба 2, спорта нет: ноль бриллиантов
+  const state = make({
+    events: [
+      ...clubs3(0, 0), // неделя 1: у первого ноль
+      [0, 'hookah', day(8)], // недели 2 и 3: кальян вне плана, но в лимите, это два бриллианта
+      ...clubs3(1, 14), // неделя 3: у второго ноль, серия прервана
+    ],
+  });
+  assert.equal(level(timeline(state, day(8)), 1), 0); // одной недели мало
+  const weeks = timeline(state, day(35));
+  assert.deepEqual(weeks.map((w) => w.gems), [[0, 2], [2, 2], [2, 0], [2, 2], [2, 2], [2, 2]]);
+  assert.deepEqual(weeks.map((w) => w.lvlUp), [
+    [false, false],
+    [false, true], // у второго недели 1 и 2
+    [true, false], // у первого недели 2 и 3
+    [false, false],
+    [true, true], // после роста счет недель начинается заново
+    [false, false], // текущая неделя не закрыта
+  ]);
+  assert.equal(level(weeks, 0), 2);
+  assert.equal(level(weeks, 1), 2);
+
+  // числа меняются в настройках: каждая неделя на три бриллианта
+  const strict = make({ settings: { lvlWeeks: 1, lvlGems: 3 }, events: [...perfect(0, 0), ...perfect(0, 1)] });
+  assert.equal(level(timeline(strict, day(21)), 0), 2);
+  assert.equal(level(timeline(strict, day(21)), 1), 0);
 });
 
 test('лимиты из настроек: стартовые и на конкретную неделю, каждому свои', () => {
@@ -400,7 +433,7 @@ test('лимиты из настроек: стартовые и на конкр�
       [4, 2],
     ],
   );
-  assert.deepEqual(weeks[1].clubLimit, [3, 0]);
+  assert.deepEqual(weeks[1].clubLimit, [2, 0]);
 });
 
 test('уровень 0: одно сердце на две недели', () => {
@@ -423,11 +456,11 @@ test('уровень 0: одно сердце на две недели', () => {
   assert.equal(weeks[1].hearts[0].left, 0);
 });
 
-test('будущая неделя для плана: без оценки, лимит текущего уровня', () => {
+test('будущая неделя для плана: без бриллиантов, лимит текущего уровня', () => {
   const weeks = timeline(make(), day(3), { through: day(7) });
   assert.equal(weeks.length, 2);
   assert.equal(weeks[1].future, true);
-  assert.deepEqual(weeks[1].grade, [null, null]);
+  assert.deepEqual(weeks[1].gems, [null, null]);
   assert.deepEqual(weeks[1].limit, [4, 4]);
 });
 
@@ -467,7 +500,7 @@ test('состояние персонажа', () => {
   assert.equal(m(make(), day(4)), 'sleep');
 });
 
-test('дни без кальяна и личные наклейки', () => {
+test('дни без кальяна и достижения с целями из настроек', () => {
   const state = make({
     events: [[0, 'hookah', day(5)], ...perfectWeek(0), ...perfect(0, 1)],
     plans: [[0, 'hookah', day(5)]],
@@ -477,15 +510,21 @@ test('дни без кальяна и личные наклейки', () => {
 
   const weeks = timeline(state, day(14));
   const all = stickers(state, weeks, day(14));
-  const got = (id, who) => all.find((x) => x.id === id && x.who === who).got;
-  assert.equal(all.length, 14);
-  assert.equal(got('first5', 0), true);
-  assert.equal(got('first5', 1), true);
-  assert.equal(got('rung3', 0), true);
-  assert.equal(got('rung3', 1), false);
-  assert.equal(got('rung2', 0), false);
-  assert.equal(got('clean7', 0), true);
-  assert.equal(got('gym10', 0), false);
+  const of = (id, who) => all.find((x) => x.id === id && x.who === who);
+  assert.equal(all.length, 12);
+  assert.deepEqual(of('sport', 0), { id: 'sport', who: 0, have: 6, need: 10, got: false });
+  assert.equal(of('cowork', 0).have, 2);
+  assert.deepEqual(of('clean', 0), { id: 'clean', who: 0, have: 9, need: 7, got: true });
+  assert.equal(of('genie', 0).have, 2);
+  assert.equal(of('genie', 0).got, false);
+  assert.equal(of('gems', 0).have, 2);
+  assert.equal(of('gems', 1).have, 1);
+  assert.equal(of('gems', 1).got, true);
+  assert.equal(of('goal', 0).got, false);
+
+  // цель достижения меняется в настройках
+  const easy = { ...state, settings: { ...state.settings, goalSport: 5 } };
+  assert.equal(stickers(easy, timeline(easy, day(14)), day(14)).find((x) => x.id === 'sport' && x.who === 0).got, true);
 });
 
 test('возглас после отметки', () => {

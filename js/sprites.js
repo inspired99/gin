@@ -15,6 +15,8 @@ const BASE = {
   R: '#ff66cf',
   N: '#22c55e',
   Y: '#f5c542',
+  C: '#6fd3f2', // бриллиант
+  S: '#2f8fcf', // его темная грань
 };
 
 // Герои и джинн нарисованы владельцем: assets/src/sheet.png, нарезка tools/sprites.mjs.
@@ -158,30 +160,60 @@ const NAV = {
   ],
 };
 
+// бриллиант недели 11x9: цветной получен, пустой нет
+const GEM = [
+  '..KKKKKKK..',
+  '.KWWCCCCCK.',
+  'KWCCCCCCCSK',
+  'KCCCCCCCSSK',
+  '.KCCCCCSSK.',
+  '..KCCCSSK..',
+  '...KCSSK...',
+  '....KSK....',
+  '.....K.....',
+];
+// пустое место под бриллиант: контур и пергамент
+const GEM_EMPTY = { K: '#b79d68', W: '#e7d2a4', C: '#e7d2a4', S: '#e7d2a4' };
+
 // --- наклейки 16x16 ---------------------------------------------------------
 
 const STICKERS = {
-  first5: [
+  gems: [
+    '................',
     '....KKKKKKKK....',
-    '...KYYYYYYYYK...',
-    '..KYYYYYYYYYYK..',
-    '.KYYYKKKKKKYYYK.',
-    '.KYYYKYYYYYYYYK.',
-    '.KYYYKYYYYYYYYK.',
-    '.KYYYKKKKKYYYYK.',
-    '.KYYYYYYYYKYYYK.',
-    '.KYYYYYYYYKYYYK.',
-    '.KYYYKYYYYKYYYK.',
-    '.KYYYYKKKKYYYYK.',
-    '..KYYYYYYYYYYK..',
-    '...KYYYYYYYYK...',
-    '....KKKKKKKK....',
-    '...KOK....KOK...',
-    '...KK......KK...',
+    '...KWWCCCCCCK...',
+    '..KWWCCCCCCCSK..',
+    '.KWWCCCCCCCCSSK.',
+    '.KWCCCCCCCCCSSK.',
+    '.KCCCCCCCCCSSSK.',
+    '..KCCCCCCCSSSK..',
+    '...KCCCCCSSSK...',
+    '....KCCCCSSK....',
+    '.....KCCSSK.....',
+    '......KCSK......',
+    '.......KK.......',
+    '................',
+    '................',
+    '................',
   ],
-  rung3: stairs('B'),
-  rung2: stairs('N'),
-  rung1: stairs('R'),
+  cowork: [
+    '................',
+    '................',
+    '...KKKKKKKKKK...',
+    '...KBBBBBBBBK...',
+    '...KBBBBBBBBK...',
+    '...KBBBBBBBBK...',
+    '...KBBBBBBBBK...',
+    '...KBBBBBBBBK...',
+    '...KKKKKKKKKK...',
+    '..KWWWWWWWWWWK..',
+    '.KWKWKWKWKWKWWK.',
+    '.KWWKWKWKWKWWWK.',
+    '.KKKKKKKKKKKKKK.',
+    '................',
+    '................',
+    '................',
+  ],
   goal: [
     '................',
     '..KKKKKKKKKKKK..',
@@ -200,7 +232,7 @@ const STICKERS = {
     '....KKKKKKKK....',
     '................',
   ],
-  clean7: [
+  clean: [
     '................',
     '..........KKKK..',
     '........KKNNNK..',
@@ -218,7 +250,7 @@ const STICKERS = {
     'KK..............',
     '................',
   ],
-  gym10: [
+  sport: [
     '................',
     '................',
     '..KK........KK..',
@@ -237,27 +269,6 @@ const STICKERS = {
     '................',
   ],
 };
-
-function stairs(fill) {
-  return [
-    '................',
-    '................',
-    '..........KKKKK.',
-    '..........KFFFK.',
-    '..........KFFFK.',
-    '......KKKKKFFFK.',
-    '......KFFFFFFFK.',
-    '......KFFFFFFFK.',
-    '..KKKKKFFFFFFFK.',
-    '..KFFFFFFFFFFFK.',
-    '..KFFFFFFFFFFFK.',
-    '..KFFFFFFFFFFFK.',
-    '..KKKKKKKKKKKKK.',
-    '................',
-    '................',
-    '................',
-  ].map((r) => r.replaceAll('F', fill));
-}
 
 // --- отрисовка ---------------------------------------------------------------
 
@@ -349,7 +360,13 @@ export function navIcon(name, opts = {}) {
   return render([NAV[name]], BASE, { scale: 2, ...opts });
 }
 
+export function gem(full, opts = {}) {
+  return render([GEM], full ? BASE : { ...BASE, ...GEM_EMPTY }, { scale: 2, ...opts });
+}
+
+/** Картинка достижения. Джинн нарисован владельцем, остальное пиксельные сетки. */
 export function sticker(id, opts = {}) {
+  if (id === 'genie') return genie('hurt', { size: 56 });
   return render([STICKERS[id]], BASE, { scale: 3, ...opts });
 }
 
@@ -359,5 +376,6 @@ export function allGrids() {
   for (const [k, rows] of Object.entries(ICONS)) out.push({ name: `icon ${k}`, rows, w: 12, h: 12 });
   for (const [k, rows] of Object.entries(NAV)) out.push({ name: `nav ${k}`, rows, w: 12, h: 12 });
   for (const [k, rows] of Object.entries(STICKERS)) out.push({ name: `sticker ${k}`, rows, w: 16, h: 16 });
+  out.push({ name: 'gem', rows: GEM, w: 11, h: 9 });
   return out;
 }

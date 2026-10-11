@@ -407,8 +407,7 @@ main > .scene + .scene {
   line-height: 1.3;
 }
 
-.is-me .who {
-  display: inline-block;
+.is-me .who-name {
   text-decoration: underline;
   text-decoration-color: var(--marker);
   text-decoration-thickness: 3px;
@@ -749,13 +748,26 @@ main > .week {
 }
 
 /* нарушение обведено маркером от руки */
+/* нарушение читается без подписи: красная рамка и крестик в углу */
 .chip.is-foul::before {
   content: '';
   position: absolute;
-  inset: -3px;
-  border: 2.5px solid var(--marker);
-  border-radius: 52% 48% 55% 45% / 48% 56% 44% 52%;
-  transform: rotate(-8deg);
+  inset: -2px;
+  border: 2px solid var(--foul);
+  border-radius: var(--r-in);
+}
+
+.chip.is-foul::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--foul)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 7 7' shape-rendering='crispEdges'%3E%3Cpath fill='%23fbf1d8' d='M1 1h1v1H1zM5 1h1v1H5zM2 2h1v1H2zM4 2h1v1H4zM3 3h1v1H3zM2 4h1v1H2zM4 4h1v1H4zM1 5h1v1H1zM5 5h1v1H5z'/%3E%3C/svg%3E")
+    center / 14px 14px no-repeat;
 }
 
 /* будущий день: что стоит в плане и плюс, чтобы добавить */
@@ -782,7 +794,7 @@ main > .week {
   }
 }
 
-/* оценка недели под отметками */
+/* итог недели под отметками */
 .diary tfoot th,
 .diary tfoot td {
   padding: var(--s3) var(--s2) 0;
@@ -797,37 +809,52 @@ main > .week {
   color: var(--muted);
 }
 
-.grade {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  border: 3px solid var(--marker);
-  border-radius: 50% 46% 53% 47% / 47% 54% 46% 53%;
-  font-size: 2.625rem;
-  line-height: 1;
-  transform: rotate(-5deg);
+/* бриллианты недели */
+.gems {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
 }
 
-/* неделя еще идет: оценка карандашом */
-.grade.is-open {
-  border-style: dashed;
+.gems-sm {
+  gap: 1px;
 }
 
-.legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s4);
-  margin-top: var(--s5);
+/* неделя еще идет: бриллианты бледнее */
+.gems.is-open {
+  opacity: 0.72;
+}
+
+.gems-note {
+  margin-left: var(--s2);
   font-size: var(--text-sm);
   color: var(--muted);
 }
 
-.legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--s2);
+/* уровень персонажа: плашка пиксельным шрифтом */
+.lvl {
+  display: inline-block;
+  margin-left: var(--s2);
+  padding: 2px 6px 1px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-in);
+  background: var(--white);
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  line-height: 1.6;
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.pick .lvl {
+  margin-left: 0;
+}
+
+/* неделя, на которой уровень вырос */
+.lvl-up {
+  border-color: var(--pen);
+  color: var(--pen);
 }
 
 /* --- декор замка ---------------------------------------------------------------- */
@@ -937,10 +964,6 @@ main > .week {
   text-underline-offset: 6px;
 }
 
-.legend-panel .legend {
-  margin-top: 0;
-}
-
 /* --- итоги: календарь месяца ---------------------------------------------------- */
 
 .month-head {
@@ -1013,7 +1036,7 @@ main > .week {
   border-left: 1px solid var(--line);
 }
 
-.cal td.cal-grade {
+.cal td.cal-gems {
   border-left: 0;
 }
 
@@ -1048,59 +1071,78 @@ main > .week {
   height: 28px;
 }
 
-.cal td.cal-grade {
-  padding-top: 18px;
+.cal td.cal-gems {
+  padding-top: 26px;
   text-align: center;
 }
 
-.cal th.cal-grade,
-.cal td.cal-grade {
-  width: 46px;
-}
-
-.grade.grade-sm {
-  width: 38px;
-  height: 38px;
-  margin-inline: auto;
-  border-width: 2.5px;
-  font-size: 1.625rem;
+.cal th.cal-gems,
+.cal td.cal-gems {
+  width: 42px;
 }
 
 /* --- наклейки --------------------------------------------------------------- */
 
-.slots {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--s4) var(--s2);
+.slots-title {
   margin-top: var(--s5);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--muted);
 }
 
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+  margin-top: var(--s2);
+}
+
+/* достижение открывается касанием: в листе видно, что считается и сколько нужно */
 .slot {
   display: grid;
   justify-items: center;
   align-content: start;
-  gap: var(--s2);
+  gap: 2px;
+  width: 100%;
+  padding: var(--s3) var(--s1) var(--s2);
+  border: 0;
+  border-radius: var(--r-card);
+  background: none;
   text-align: center;
+}
+
+@media (hover: hover) {
+  .slot:hover {
+    background: var(--tint);
+  }
 }
 
 .plate {
   display: grid;
   place-items: center;
+  flex: none;
   width: 60px;
   height: 60px;
+  margin-bottom: var(--s2);
   border: 1.5px dashed var(--line-strong);
   border-radius: var(--r-card);
 }
 
-.plate .px {
+.plate .px,
+.plate .pic {
   opacity: 0.22;
   filter: grayscale(1);
 }
 
-.is-got .plate {
+.is-got .plate,
+.plate-show {
   border: 2px solid var(--ink);
   background: var(--white);
   box-shadow: var(--drop-btn);
+}
+
+.is-got .plate {
   transform: rotate(-6deg);
 }
 
@@ -1112,20 +1154,67 @@ main > .week {
   transform: rotate(-3deg);
 }
 
-.is-got .plate .px {
+.is-got .plate .px,
+.is-got .plate .pic,
+.plate-show .px,
+.plate-show .pic {
   opacity: 1;
   filter: none;
 }
 
 .slot-name {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   line-height: 1.3;
   color: var(--muted);
 }
 
-.is-got .slot-name {
-  font-weight: 500;
+/* число под достижением подчеркнуто пунктиром: его можно открыть и поменять */
+.slot-have {
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+  color: var(--muted);
+}
+
+.is-got .slot-name,
+.is-got .slot-have {
+  font-weight: 600;
   color: var(--ink);
+}
+
+/* лист достижения */
+.goal-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+}
+
+.goal-top .plate {
+  margin-bottom: 0;
+}
+
+.goal-list {
+  display: grid;
+  gap: var(--s2);
+  width: 100%;
+  margin-block: var(--s2);
+}
+
+.goal-who {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.goal-who b {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.goal-who:not(.is-got) b {
+  font-weight: 400;
+  color: var(--muted);
 }
 
 /* --- правила ------------------------------------------------------------------ */
@@ -1174,22 +1263,25 @@ ol.rule-list .rule h2::before {
   max-width: 56ch;
 }
 
-.grade-key ul {
+.gem-key {
+  margin-top: var(--s6);
+}
+
+.gem-key ul {
   display: grid;
   gap: var(--s3);
   margin-top: var(--s4);
 }
 
-.grade-key li {
+.gem-key li {
   display: flex;
   align-items: center;
   gap: var(--s4);
 }
 
-.grade-key .grade {
-  width: 48px;
-  height: 48px;
-  font-size: 2.125rem;
+.key-note {
+  margin-top: var(--s4);
+  max-width: 56ch;
 }
 
 /* --- лист -------------------------------------------------------------------- */
@@ -1794,7 +1886,7 @@ ol.rule-list .rule h2::before {
 
 
   .slots {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
   .cal-cell {

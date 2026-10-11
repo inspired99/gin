@@ -66,6 +66,7 @@ export function buildModel(state, today, view) {
     plans: live(state.plan),
     debts: [0, 1].map((who) => R.debtInfo(state, weeks, who, today)),
     moods: [0, 1].map((who) => R.mood(state, weeks, who, today)),
+    levels: [0, 1].map((who) => R.level(weeks, who)),
     screen,
     stickers: R.stickers(state, weeks, today),
     status: view.status || 'local',
