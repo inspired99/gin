@@ -4,7 +4,7 @@
 
 import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, MAX_LVL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
 import * as C from './copy.js';
-import { gem, genie, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
+import { gem, genieFor, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
 
 const { esc } = C;
 
@@ -73,9 +73,9 @@ function room(m, who) {
   const h = wk.hearts[who];
   const t = wk.tokens[who];
   const mood = m.moods[who];
-  // джинн это спутник: чем выше уровень персонажа, тем он крупнее
+  // джинн это спутник: новая картинка на каждом втором уровне, на нечетном он чуть подрастает
   const lvl = m.levels[who];
-  const grow = (0.7 + (0.6 * Math.min(lvl, MAX_LVL)) / MAX_LVL).toFixed(2);
+  const grow = lvl % 2 && lvl < MAX_LVL ? '1.07' : '1';
   const debt = m.debts[who];
   const due = debt.n ? (debt.due < m.today ? 'срок вышел' : C.byEndOf(debt.due)) : '';
   const debtChip = debt.n
@@ -92,7 +92,7 @@ function room(m, who) {
   return `<section class="scene${who === m.me ? ' is-me' : ''}" aria-label="${name}">
     <div class="room" style="--genie: ${grow}">
       ${hero(who, mood, { size: 112, cls: `room-hero${mood === 'sleep' ? '' : ' bob'}`, label: `${name}: ${C.MOOD[mood]}` })}
-      ${genie('up', { size: 96, cls: 'room-genie bob bob-slow', label: `джинн, уровень ${lvl}` })}
+      ${genieFor(lvl, { size: 160, cls: 'room-genie bob bob-slow', label: `джинн, уровень ${lvl}` })}
     </div>
     <div class="stock">
       <p class="who"><span class="who-name">${name}</span><span class="lvl" aria-label="уровень ${lvl}">lvl ${lvl}</span></p>

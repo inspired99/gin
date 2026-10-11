@@ -323,6 +323,12 @@ export function hero(who, state = 'idle', opts = {}) {
 }
 
 /** state: up (жив), laugh (подлечился на нарушении), hurt (осталось мало), down (побежден) */
+/** Джинн-спутник по уровню персонажа: шесть картинок, новая на каждом втором уровне, последняя на десятом. */
+export function genieFor(level = 0, opts = {}) {
+  const tier = 2 * Math.floor(Math.max(0, Math.min(10, level)) / 2);
+  return picture(`genie-lvl-${tier}`, opts);
+}
+
 export function genie(state = 'up', opts = {}) {
   const st = GENIE_STATES.includes(state) ? state : 'up';
   return picture(`genie-${st}`, opts);
@@ -366,7 +372,7 @@ export function gem(full, opts = {}) {
 
 /** Картинка достижения. Джинн нарисован владельцем, остальное пиксельные сетки. */
 export function sticker(id, opts = {}) {
-  if (id === 'level') return genie('up', { size: 56 });
+  if (id === 'level') return genieFor(10, { size: 56 });
   return render([STICKERS[id]], BASE, { scale: 3, ...opts });
 }
 

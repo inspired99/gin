@@ -90,6 +90,12 @@ node tools/sprites.mjs assets/src/sheet.png
 node tools/sprites.mjs props
 ```
 
+Джинн по уровням (шесть стадий, сетка 3 на 2) режется из `assets/src/genie-levels.webp` в `assets/sprites/genie-lvl-0.webp` ... `genie-lvl-10.webp`:
+
+```bash
+node tools/sprites.mjs genies
+```
+
 Комнатка и деревянная стена тоже нарисованы владельцем (`assets/src/scene.webp`, `assets/src/wall.webp`). Комнатка уменьшается до 1280 px по ширине, стена затемняется вдвое, чтобы светлый текст на ней проходил по контрасту:
 
 ```bash

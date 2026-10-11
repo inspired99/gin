@@ -1,6 +1,7 @@
 // Нарезка нарисованных листов на отдельные картинки.
 //   node tools/sprites.mjs heroes [assets/src/sheet.png]   персонажи, 4 на 3
 //   node tools/sprites.mjs props  [assets/src/props.png]   декор, 4 на 2
+//   node tools/sprites.mjs genies [assets/src/genie-levels.webp]   джинн по уровням, 3 на 2
 // Лист на пурпурном фоне. Скрипт убирает фон, находит границы ячеек по пустым полосам
 // и пишет WebP. Нужны ffmpeg и cwebp (без cwebp останется PNG), зависимостей из npm нет.
 
@@ -19,6 +20,16 @@ const LAYOUTS = {
       ['hero-a-idle', 'hero-a-fit', 'hero-a-smoke', 'hero-a-sleep'],
       ['hero-b-idle', 'hero-b-fit', 'hero-b-smoke', 'hero-b-sleep'],
       ['genie-up', 'genie-laugh', 'genie-hurt', 'genie-down'],
+    ],
+  },
+  // джинн по уровням: общий квадрат и общий масштаб, чаша на одной линии, поэтому старший заметно крупнее
+  genies: {
+    src: 'assets/src/genie-levels.webp',
+    out: 'assets/sprites',
+    fit: 'square',
+    names: [
+      ['genie-lvl-0', 'genie-lvl-2', 'genie-lvl-4'],
+      ['genie-lvl-6', 'genie-lvl-8', 'genie-lvl-10'],
     ],
   },
   // декор: каждая картинка обрезана по содержимому; кадры одной анимации делят общий холст
