@@ -212,32 +212,87 @@ function legend(full) {
     </p>`;
 }
 
-function week(m) {
-  const wk = m.view;
+function weekBlock(m, wk, lead) {
   const title = wk.pre ? 'до первой недели' : `неделя ${wk.index}`;
-  const note = wk.future
-    ? `<p class="week-note">Плюсом ставь в план спорт, бассейн, коворкинг и дни кальяна.</p>`
-    : wk.pre
-      ? `<p class="week-note">До первой недели оценки и лимиты не считаются.</p>`
-      : '';
-  return `<section class="week" aria-labelledby="week-title">
-    <div class="week-head">
-      <div>
-        <h2 id="week-title">${title}</h2>
-        <p class="week-range">${C.weekRange(wk.start)}</p>
-      </div>
-      <div class="week-nav">
+  const nav = lead
+    ? `<div class="week-nav">
         <button class="icon-btn" type="button" data-act="week-prev" data-key="week-prev" aria-label="предыдущая неделя" ${m.canPrev ? '' : 'disabled'}>${chevron('left')}</button>
         <button class="icon-btn" type="button" data-act="week-next" data-key="week-next" aria-label="следующая неделя" ${m.canNext ? '' : 'disabled'}>${chevron('right')}</button>
+      </div>`
+    : '';
+  return `<div class="week-block">
+    <div class="week-head">
+      <div>
+        <h2 ${lead ? 'id="week-title"' : ''}>${title}</h2>
+        <p class="week-range">${C.weekRange(wk.start)}</p>
       </div>
+      ${nav}
     </div>
-    ${note}
     <table class="diary">
       <thead><tr><th scope="col"><span class="sr">день</span></th>
         ${m.shown.map((who) => `<th scope="col">${esc(m.players[who].name)}</th>`).join('')}</tr></thead>
       <tbody>${diaryRows(m, wk)}</tbody>
       ${gradesRow(m, wk)}
     </table>
+  </div>`;
+}
+
+/** Сетка месяца, как календарь в заметках: семь столбцов по дням недели, справа оценка недели. */
+function calendarGrid(m, who) {
+  const name = esc(m.players[who].name);
+  const head = `${C.DOW_SHORT.map((d) => `<th scope="col">${d}</th>`).join('')}<th scope="col" class="cal-grade"><span class="sr">оценка недели</span></th>`;
+  const rows = monthWeeks(m.month)
+    .map((w) => {
+      const wk = m.weeks.find((x) => x.start === w);
+      const days = weekDays(w)
+        .map((day) => {
+          const { html, names } = cellParts(m, day, who);
+          const cls = `${day.slice(0, 7) === m.month ? '' : ' is-out'}${day === m.today ? ' is-today' : ''}`;
+          const what = names.length ? names.join(', ') : 'пусто';
+          const future = day > m.today;
+          // прошедший день открывает «отметить», будущий открывает план
+          return `<td class="cal-day${cls}"><button class="cal-cell" type="button" data-act="${future ? 'plan-open' : 'log-open'}" data-day="${day}" data-who="${who}"
+            data-key="cal-${who}-${day}" aria-label="${name}, ${C.dayShort(day)}: ${what}. ${future ? 'добавить в план' : 'отметить'}"><span class="cal-num">${C.dayNum(day)}</span>${html}</button></td>`;
+        })
+        .join('');
+      const grade = wk && !wk.future ? gradeMark(m, wk, who, ' grade-sm') : '';
+      return `<tr>${days}<td class="cal-grade">${grade}</td></tr>`;
+    })
+    .join('');
+  return `<table class="cal">
+      <thead><tr>${head}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function monthNav(m) {
+  return `<div class="week-nav">
+      <button class="icon-btn" type="button" data-act="month" data-d="-1" data-key="month-prev" aria-label="предыдущий месяц" ${m.canPrevMonth ? '' : 'disabled'}>${chevron('left')}</button>
+      <button class="icon-btn" type="button" data-act="month" data-d="1" data-key="month-next" aria-label="следующий месяц" ${m.canNextMonth ? '' : 'disabled'}>${chevron('right')}</button>
+    </div>`;
+}
+
+function monthBlock(m) {
+  const grids = m.shown
+    .map((who) => `${m.shown.length > 1 ? `<h3 class="cal-who">${esc(m.players[who].name)}</h3>` : ''}${calendarGrid(m, who)}`)
+    .join('');
+  return `<div class="week-block">
+    <div class="week-head">
+      <h2 id="week-title">${C.monthTitle(m.month)}</h2>
+      ${monthNav(m)}
+    </div>
+    ${grids}
+  </div>`;
+}
+
+/** Дневник на главной: неделя с соседней или весь месяц сеткой. */
+function diary(m) {
+  const modeBtn = (mode, label) =>
+    `<button class="seg-btn" type="button" aria-pressed="${m.mode === mode}" data-act="diary-mode" data-mode="${mode}" data-key="mode-${mode}">${label}</button>`;
+  const body = m.mode === 'month' ? monthBlock(m) : `${weekBlock(m, m.view, true)}${weekBlock(m, m.viewNext, false)}`;
+  return `<section class="week" aria-label="дневник">
+    <div class="seg diary-modes" role="group" aria-label="вид дневника">${modeBtn('week', 'неделя')}${modeBtn('month', 'месяц')}</div>
+    ${body}
     ${legend(false)}
     <span class="leaves" aria-hidden="true">${prop('leaf-orange', 40)}${prop('leaf-yellow', 32)}</span>
   </section>`;
@@ -249,33 +304,15 @@ function home(m) {
     ${banner(m)}
     ${scene(m)}
     ${actions(m, 'actions-inline')}
-    ${week(m)}
+    ${diary(m)}
   </main>
   <nav class="bar" aria-label="действия">${actions(m, 'actions-bar')}</nav>`;
 }
 
 // --- итоги: календарь месяца ---------------------------------------------------
 
-function calendar(m, who) {
+function person(m, who) {
   const name = esc(m.players[who].name);
-  const head = `${C.DOW_SHORT.map((d) => `<th scope="col">${d}</th>`).join('')}<th scope="col" class="cal-grade"><span class="sr">оценка недели</span></th>`;
-  const rows = monthWeeks(m.month)
-    .map((w) => {
-      const wk = m.weeks.find((x) => x.start === w);
-      const days = weekDays(w)
-        .map((day) => {
-          const { html, names } = cellParts(m, day, who);
-          const cls = `${day.slice(0, 7) === m.month ? '' : ' is-out'}${day === m.today ? ' is-today' : ''}`;
-          const inner = `<span class="cal-num">${C.dayNum(day)}</span>${html}`;
-          if (day > m.today) return `<td class="cal-day${cls}"><div class="cal-cell">${inner}</div></td>`;
-          const label = `${name}, ${C.dayShort(day)}: ${names.length ? names.join(', ') : 'пусто'}. отметить`;
-          return `<td class="cal-day${cls}"><button class="cal-cell" type="button" data-act="log-open" data-day="${day}" data-who="${who}" data-key="cal-${who}-${day}" aria-label="${label}">${inner}</button></td>`;
-        })
-        .join('');
-      const grade = wk && !wk.future ? gradeMark(m, wk, who, ' grade-sm') : '';
-      return `<tr>${days}<td class="cal-grade">${grade}</td></tr>`;
-    })
-    .join('');
   const slots = m.stickers
     .filter((st) => st.who === who)
     .map((st) => {
@@ -294,10 +331,7 @@ function calendar(m, who) {
         <p class="person-sub">без кальяна ${C.nDays(cleanDays(m.state, who, m.today))}</p>
       </div>
     </div>
-    <table class="cal">
-      <thead><tr>${head}</tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    ${calendarGrid(m, who)}
     <ul class="slots">${slots}</ul>
   </section>`;
 }
@@ -335,15 +369,12 @@ function stats(m) {
     <section class="month-panel" aria-labelledby="month-title">
     <div class="week-head month-head">
       <h2 class="page-title" id="month-title">${prop('candle', 40)}${C.monthTitle(m.month)}</h2>
-      <div class="week-nav">
-        <button class="icon-btn" type="button" data-act="month" data-d="-1" data-key="month-prev" aria-label="предыдущий месяц" ${m.canPrevMonth ? '' : 'disabled'}>${chevron('left')}</button>
-        <button class="icon-btn" type="button" data-act="month" data-d="1" data-key="month-next" aria-label="следующий месяц" ${m.canNextMonth ? '' : 'disabled'}>${chevron('right')}</button>
-      </div>
+      ${monthNav(m)}
     </div>
     ${versus(m)}
     </section>
-    ${calendar(m, 0)}
-    ${calendar(m, 1)}
+    ${person(m, 0)}
+    ${person(m, 1)}
     ${legendPanel()}
   </main>`;
 }

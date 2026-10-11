@@ -22,6 +22,7 @@ let screen = 'home'; // home | stats | rules
 let homeScroll = 0;
 let showOther = false; // на главной по умолчанию только свой персонаж
 let viewStart = null;
+let mode = prefs.view() === 'month' ? 'month' : 'week'; // вид дневника на главной
 let month = null; // месяц календаря на экране итогов, 'YYYY-MM'
 let sheetState = null;
 let undo = null;
@@ -48,15 +49,17 @@ function model() {
   const s = R.normalize(state.settings);
   const today = R.localDay();
   const curStart = R.weekOf(today);
-  const through = [R.addDays(curStart, 7), s.start].sort().pop();
-  const weeks = R.timeline(state, today, { through });
+  // в недельном виде показываем неделю и следующую за ней, поэтому считаем на неделю вперед
+  const firstView = today < s.start ? s.start : curStart;
+  const weeks = R.timeline(state, today, { through: R.addDays(firstView, 7) });
   const cur = weeks.find((w) => w.start === curStart) || weeks[0];
   const minView = [R.weekOf(s.createdDay || s.start), s.start].sort()[0];
-  const maxView = weeks[weeks.length - 1].start;
-  if (!viewStart) viewStart = today < s.start ? s.start : curStart;
+  const maxView = firstView;
+  if (!viewStart) viewStart = firstView;
   if (viewStart < minView) viewStart = minView;
   if (viewStart > maxView) viewStart = maxView;
-  const view = weeks.find((w) => w.start === viewStart) || R.preWeek(state, viewStart);
+  const weekAt = (w) => weeks.find((x) => x.start === w) || R.preWeek(state, w);
+  const view = weekAt(viewStart);
   const other = me === 0 ? 1 : 0;
   const curMonth = today.slice(0, 7);
   const minMonth = minView.slice(0, 7);
@@ -74,6 +77,8 @@ function model() {
     weeks,
     cur,
     view,
+    viewNext: weekAt(R.addDays(viewStart, 7)),
+    mode,
     canPrev: viewStart > minView,
     canNext: viewStart < maxView,
     month,
@@ -298,6 +303,11 @@ const actions = {
     showOther = !showOther;
     render();
   },
+  'diary-mode'(el) {
+    mode = el.dataset.mode === 'month' ? 'month' : 'week';
+    prefs.setView(mode);
+    render();
+  },
   'week-prev'() {
     viewStart = R.addDays(viewStart, -7);
     render();
@@ -467,10 +477,11 @@ function boot() {
     store = createStore({ room: 'demo', adapter: memoryAdapter(demoState(R.localDay())), persist: false });
     const who = params.get('me');
     if (who === '0' || who === '1') me = Number(who);
-    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|plan|menu, а &other показывает друга
+    // в примере можно открыть нужный экран ссылкой: ?demo&me=0&open=stats|rules|log|plan|menu, &other показывает друга, &view=month включает месяц
     const open = params.get('open');
     if (open === 'stats' || open === 'rules') screen = open;
     if (params.has('other')) showOther = true;
+    if (['week', 'month'].includes(params.get('view'))) mode = params.get('view');
     if (me != null && ['log', 'menu', 'plan'].includes(open)) {
       const day = R.localDay();
       const state = { log: { type: 'log', day, who: me }, plan: { type: 'plan', day: R.addDays(day, 1), who: me }, menu: { type: 'menu' } }[open];

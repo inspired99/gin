@@ -33,8 +33,9 @@ const ls = {
 export const prefs = {
   room: () => ls.get('fixgaz:room'),
   setRoom: (room) => (room ? ls.set('fixgaz:room', room) : ls.del('fixgaz:room')),
-  me: (room) => ls.get(`fixgaz:me:${room}`),
-  setMe: (room, who) => ls.set(`fixgaz:me:${room}`, who),
+  /** Вид дневника на этом устройстве: 'week' или 'month'. */
+  view: () => ls.get('fixgaz:view'),
+  setView: (view) => ls.set('fixgaz:view', view),
 };
 
 export function newRoomKey() {

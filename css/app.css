@@ -556,6 +556,21 @@ main > .week {
   transform: rotate(24deg);
 }
 
+/* переключатель вида: неделя с соседней или месяц сеткой */
+.diary-modes {
+  margin: 0 0 var(--s4);
+}
+
+.week-block + .week-block {
+  margin-top: var(--s6);
+}
+
+.cal-who {
+  margin-top: var(--s4);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
 .week-head {
   display: flex;
   align-items: flex-end;
@@ -991,6 +1006,15 @@ main > .week {
   border: 0;
   border-radius: var(--r-in);
   background: none;
+  color: var(--ink);
+}
+
+.cal td + td {
+  border-left: 1px solid var(--line);
+}
+
+.cal td.cal-grade {
+  border-left: 0;
 }
 
 @media (hover: hover) {
@@ -1010,10 +1034,11 @@ main > .week {
   opacity: 0.4;
 }
 
+/* сегодня: число на огненной плашке */
 .cal-day.is-today .cal-num {
-  padding: 0 6px;
-  border: 1.5px solid var(--ink);
-  border-radius: 10px;
+  padding: 0 5px;
+  border-radius: var(--r-in);
+  background: var(--marker);
   font-weight: 600;
   color: var(--ink);
 }
