@@ -442,7 +442,27 @@ document.addEventListener('change', (e) => {
   }
 });
 
+/** Подключиться к готовому дневнику по вставленной ссылке: приложение с домашнего экрана ссылку открыть не может. */
+function joinDiary(form) {
+  const text = form.elements.link.value.trim();
+  const room = (text.match(/room=([A-Za-z0-9]+)/) || [])[1] || (/^[A-Za-z0-9]+$/.test(text) ? text : '');
+  if (room.length < 20) {
+    const err = form.querySelector('.form-error');
+    err.textContent = 'Это не похоже на ссылку дневника. Она заканчивается на #room= и длинный ключ.';
+    err.hidden = false;
+    return;
+  }
+  prefs.setRoom(room);
+  location.hash = `room=${room}`;
+  location.reload();
+}
+
 document.addEventListener('submit', (e) => {
+  if (e.target.id === 'join') {
+    e.preventDefault();
+    joinDiary(e.target);
+    return;
+  }
   if (e.target.id !== 'create') return;
   e.preventDefault();
   createDiary(e.target);

@@ -92,6 +92,7 @@ test('число кальянов: от одного до шести, у зап�
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);
+  assert.match(UI.welcome({ startDay: '2026-10-12', local: false }), /id="join"[\s\S]*name="link"/); // можно вставить ссылку на готовый дневник
   assert.match(UI.whoAreYou(players), /data-act="i-am"/);
   assert.match(UI.loading('offline'), /Нет сети/);
 });

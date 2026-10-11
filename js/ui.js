@@ -700,7 +700,12 @@ export function welcome({ startDay, local, missing }) {
       <p class="form-error" role="alert" hidden></p>
       <button class="btn btn-main" type="submit">создать дневник</button>
     </form>
-    <p class="hint">Есть ссылка от друга? Открой ее, и дневник подключится сам.</p>
+    <form id="join" class="create join" novalidate>
+      <label class="field"><span>уже есть дневник? вставь ссылку на него</span>
+        <input type="text" name="link" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" placeholder="https://…#room=…" required></label>
+      <p class="form-error" role="alert" hidden></p>
+      <button class="btn" type="submit">открыть дневник</button>
+    </form>
   </main>`;
 }
 
