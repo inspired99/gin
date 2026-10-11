@@ -31,6 +31,7 @@ let month = null; // месяц календаря на экране итого�
 let sheetState = null;
 let undo = null;
 let toastTimer = null;
+let shownDay = null; // день, для которого нарисован экран
 
 const roomFromHash = () => (location.hash.match(/room=([A-Za-z0-9]+)/) || [])[1] || null;
 const link = () => `${location.origin}${location.pathname}#room=${store.room}`;
@@ -43,7 +44,8 @@ function defaultStart(today) {
 
 function model() {
   const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind };
-  const built = buildModel(store.state, R.localDay(), view);
+  shownDay = R.localDay();
+  const built = buildModel(store.state, shownDay, view);
   // границы недели и месяца приводит модель, запоминаем приведенные значения
   viewStart = built.viewStart;
   month = built.month;
@@ -502,7 +504,7 @@ sheet.addEventListener('close', () => {
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && store) render(); // мог смениться день
+  if (document.visibilityState === 'visible' && store && !newDay()) render();
 });
 
 // --- запуск ------------------------------------------------------------------
@@ -603,6 +605,18 @@ document.addEventListener('touchcancel', () => {
   pull = null;
   ptrEl.hidden = true;
 });
+
+// Приложение с домашнего экрана может жить в памяти сутками. Наступил новый день:
+// перерисовываем сами и возвращаем дневник к текущей неделе и месяцу.
+function newDay() {
+  if (!store || !shownDay || R.localDay() === shownDay) return false;
+  viewStart = null;
+  month = null;
+  render();
+  return true;
+}
+window.addEventListener('focus', newDay);
+setInterval(newDay, 60000);
 
 // новая версия подтягивается сама: при запуске и когда в приложение вернулись
 const wasHere = Boolean(prefs.room());
