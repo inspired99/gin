@@ -216,17 +216,16 @@ function summarize(ctx) {
       if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'club', reasons, light: true });
     });
     // Счет идет в долях: в одном штрафе unit долей. Нарушение в играх это одна доля.
-    // Кальян: первое нарушение за неделю стоит один штраф, каждое следующее на один дороже.
-    // Пока висит целый неотработанный штраф, любой кальян это нарушение ценой debtX штрафов, без нарастания.
+    // Кальян: нарушение стоит один штраф, цена не растет.
+    // Пока висит целый неотработанный штраф, любой кальян это нарушение ценой debtX штрафов.
     const penalties = mine.filter((e) => e.kind === 'penalty');
     const paidBefore = (f) => penalties.filter((p) => p.day < f.day || (p.day === f.day && (p.at || 0) < (f.at || 0))).length * unit;
-    let hard = 0;
     for (const f of list.sort(byTime)) {
       if (!f.light) {
         const inDebt = owed[who] - paidBefore(f) >= unit;
         if (inDebt) f.reasons.push('debt');
         if (!f.reasons.length) continue;
-        f.cost = inDebt ? s.debtX : (hard += 1);
+        f.cost = inDebt ? s.debtX : 1;
         f.units = f.cost * unit;
       } else {
         f.cost = 0;

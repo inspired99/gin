@@ -307,7 +307,7 @@ test('пока висит штраф, кальян это нарушение и 
   const paidSame = make({ events: [[0, 'hookah', day(0)], [0, 'penalty', day(8)], [0, 'hookah', day(8)]], plans: [planned(day(8))] });
   assert.equal(timeline(paidSame, day(9))[1].fouls.length, 0);
 
-  // в ту же неделю: первое нарушение один штраф, следующие кальяны под долгом по два, без нарастания
+  // в ту же неделю: первое нарушение один штраф, следующие кальяны под долгом всегда по два
   const sameWeek = make({ events: [[0, 'hookah', day(0)], [0, 'hookah', day(1)], [0, 'hookah', day(2)]], plans: [planned(day(1))] });
   weeks = timeline(sameWeek, day(3));
   assert.deepEqual(weeks[0].fouls.map((f) => [f.reasons.join('+'), f.cost]), [['unplanned', 1], ['debt', 2], ['unplanned+debt', 2]]);
@@ -329,8 +329,8 @@ test('пока висит штраф, кальян это нарушение и 
   assert.equal(say, 'debt');
 });
 
-test('эскалация: второе нарушение за неделю стоит два штрафа, у каждого свой счет', () => {
-  // первый штраф отработан сразу, поэтому второй кальян не под долгом: просто второе нарушение
+test('каждое нарушение один штраф, цена не растет; у каждого свой счет', () => {
+  // первый штраф отработан сразу, поэтому второй кальян не под долгом: обычное нарушение
   const state = make({
     events: [
       [0, 'hookah', day(0)],
@@ -343,11 +343,11 @@ test('эскалация: второе нарушение за неделю ст
   const costs = weeks[0].fouls.map((f) => [f.who, f.cost]).sort();
   assert.deepEqual(costs, [
     [0, 1],
-    [0, 2],
+    [0, 1],
     [1, 1],
   ]);
-  assert.deepEqual(weeks[0].debt, [2, 1]);
-  assert.equal(debtInfo(state, weeks, 0, day(1)).n, 2);
+  assert.deepEqual(weeks[0].debt, [1, 1]);
+  assert.equal(debtInfo(state, weeks, 0, day(1)).n, 1);
   assert.equal(debtInfo(state, weeks, 0, day(1)).due, day(3));
 });
 
@@ -360,7 +360,7 @@ test('штраф гасит долг, срок считается от само�
   const state = make({ events });
   const weeks = timeline(state, day(3));
   const info = debtInfo(state, weeks, 0, day(3));
-  assert.equal(info.n, 2);
+  assert.equal(info.n, 1); // первый отработан, второй кальян не под долгом: один штраф
   assert.equal(info.since, day(3));
   assert.equal(info.due, day(5));
 
