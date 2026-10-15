@@ -466,6 +466,11 @@ main > .scene + .scene {
   color: var(--muted);
 }
 
+.stat-note.is-foul {
+  font-weight: 600;
+  color: var(--pen);
+}
+
 /* счетчик полезного: значок вида и сколько раз за неделю */
 .goods {
   gap: var(--s3);
@@ -846,6 +851,11 @@ main > .week {
 .lvl-up {
   border-color: var(--pen);
   color: var(--pen);
+}
+
+.lvl-down {
+  border-color: var(--foul);
+  color: var(--foul);
 }
 
 /* --- декор замка ---------------------------------------------------------------- */

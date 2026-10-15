@@ -46,7 +46,7 @@ export const KIND = {
 
 export const MOOD = { idle: 'в порядке', fit: 'в форме', smoke: 'в дыму', sleep: 'спит' };
 
-const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'в день спорта', bad: 'в плохом режиме' };
+const REASON = { over: 'сверх лимита', unplanned: 'вне плана', gymday: 'в день спорта', bad: 'в плохом режиме', debt: 'при неотработанном штрафе' };
 
 export const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -121,6 +121,7 @@ export const SHOUT = {
   treat: { tone: 'calm', say: ['приятного покура!'] },
   'club-ok': { tone: 'calm', say: ['катка засчитана'] },
   foul: { tone: 'bad', say: ['нарушение!'] },
+  debt: { tone: 'bad', say: ['сначала штраф!'] },
   danger: { tone: 'bad', say: ['опасно!'] },
   'club-over': { tone: 'bad', say: ['перебор!'] },
   'club-bad': { tone: 'bad', say: ['режим сбит!', 'так себе катка'] },

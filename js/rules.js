@@ -15,12 +15,16 @@ export const DEFAULTS = {
   penaltyDays: 2,
   // игры: нарушение полегче, один штраф набегает за столько нарушений
   gamesPerPenalty: 2,
+  // кальян, пока висит неотработанный штраф: нарушение, и стоит оно столько штрафов
+  debtX: 2,
   // норма недели для трех бриллиантов
   needSport: 2,
   needCowork: 1,
   // уровень персонажа растет за недели подряд с таким числом бриллиантов
   lvlWeeks: 2,
   lvlGems: 2,
+  // плохая неделя снимает уровень: бриллиантов не больше этого или штраф не отработан к сроку
+  lvlDownGems: 1,
   // цели достижений в итогах
   goalSport: 10,
   goalCowork: 5,
@@ -92,10 +96,12 @@ export function normalize(settings) {
   s.limitSet = s.limitSet || {};
   s.penaltyDays = clampInt(s.penaltyDays, 1, 14);
   s.gamesPerPenalty = clampInt(s.gamesPerPenalty, 1, 5);
+  s.debtX = clampInt(s.debtX, 1, 5);
   s.needSport = clampInt(s.needSport, 0, 14);
   s.needCowork = clampInt(s.needCowork, 0, 7);
   s.lvlWeeks = clampInt(s.lvlWeeks, 1, 8);
   s.lvlGems = clampInt(s.lvlGems, 1, 3);
+  s.lvlDownGems = clampInt(s.lvlDownGems, 0, 2);
   for (const key of Object.values(GOAL_KEYS)) s[key] = clampInt(s[key], 1, GOAL_MAX);
   s.goalLevel = Math.min(s.goalLevel, MAX_LVL);
   return s;
@@ -177,6 +183,7 @@ function summarize(ctx) {
     over: [],
     gems: [],
     lvlUp: [false, false],
+    lvlDown: [false, false],
   };
 
   for (const who of [0, 1]) {
@@ -198,7 +205,8 @@ function summarize(ctx) {
       if (used > rung.n) reasons.push('over');
       if (!hasHookahPlan(plans, s, who, e.day)) reasons.push('unplanned');
       if (isSportDay(mine, plans, who, e.day)) reasons.push('gymday');
-      if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'hookah', reasons });
+      // кальян без нарушений тоже идет в список: он станет нарушением, если в этот момент висит штраф
+      list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'hookah', reasons });
     });
     // игры: сверх лимита или в плохом режиме. Это легкое нарушение, доля штрафа
     clubsDone.forEach((e, i) => {
@@ -209,13 +217,24 @@ function summarize(ctx) {
     });
     // Счет идет в долях: в одном штрафе unit долей. Нарушение в играх это одна доля.
     // Кальян: первое нарушение за неделю стоит один штраф, каждое следующее на один дороже.
+    // Пока висит целый неотработанный штраф, любой кальян это нарушение ценой debtX штрафов, без нарастания.
+    const penalties = mine.filter((e) => e.kind === 'penalty');
+    const paidBefore = (f) => penalties.filter((p) => p.day < f.day || (p.day === f.day && (p.at || 0) < (f.at || 0))).length * unit;
     let hard = 0;
-    list.sort(byTime).forEach((f) => {
-      f.cost = f.light ? 0 : (hard += 1);
-      f.units = f.light ? 1 : f.cost * unit;
+    for (const f of list.sort(byTime)) {
+      if (!f.light) {
+        const inDebt = owed[who] - paidBefore(f) >= unit;
+        if (inDebt) f.reasons.push('debt');
+        if (!f.reasons.length) continue;
+        f.cost = inDebt ? s.debtX : (hard += 1);
+        f.units = f.cost * unit;
+      } else {
+        f.cost = 0;
+        f.units = 1;
+      }
       wk.fouls.push(f);
       owed[who] += f.units;
-    });
+    }
 
     // долг: все начисленное к концу этой недели минус отработанное к сроку
     const paid = events.filter((e) => e.kind === 'penalty' && e.who === who && e.day <= through).length;
@@ -245,6 +264,9 @@ function summarize(ctx) {
  * лимит клуба вместе с ним, но не ниже одного. Настройка limitSet задает лимиты с нужной недели.
  * Уровень персонажа растет на один за каждые lvlWeeks закрытых недель подряд, где бриллиантов не меньше lvlGems;
  * неделя, на которой он вырос, помечена lvlUp. Выше MAX_LVL уровень не растет.
+ * Плохая неделя снимает один уровень (lvlDown) и обнуляет счет недель подряд: бриллиантов не больше lvlDownGems
+ * или штраф не отработан к сроку. Уровень может уйти в минус, до -MAX_LVL. Штрафы не сгорают:
+ * пока висят, каждая следующая неделя тоже плохая.
  */
 export function timeline(state, today, opts = {}) {
   const s = normalize(state.settings);
@@ -284,12 +306,23 @@ export function timeline(state, today, opts = {}) {
     const wk = summarize({ s, events, plans, w, end, levels, clubs, periodStarts, closed, future: w > cur, today, owed });
     out.push(wk);
     if (!closed) continue;
+    // срок штрафов этой недели еще не вышел: про долг судить рано
+    const graceOver = addDays(end, s.penaltyDays) < today;
     for (const who of [0, 1]) {
-      runs[who] = wk.gems[who] >= s.lvlGems ? runs[who] + 1 : 0;
-      if (runs[who] >= s.lvlWeeks && lvls[who] < MAX_LVL) {
-        wk.lvlUp[who] = true;
-        lvls[who] += 1;
+      const bad = wk.gems[who] <= s.lvlDownGems || (graceOver && wk.debt[who] > 0);
+      if (bad) {
+        if (lvls[who] > -MAX_LVL) {
+          wk.lvlDown[who] = true;
+          lvls[who] -= 1;
+        }
         runs[who] = 0;
+      } else {
+        runs[who] = wk.gems[who] >= s.lvlGems ? runs[who] + 1 : 0;
+        if (runs[who] >= s.lvlWeeks && lvls[who] < MAX_LVL) {
+          wk.lvlUp[who] = true;
+          lvls[who] += 1;
+          runs[who] = 0;
+        }
       }
       fives[who] = wk.gems[who] === 3 ? fives[who] + 1 : 0;
       if (fives[who] >= 2 && levels[who] > 0) {
@@ -303,9 +336,9 @@ export function timeline(state, today, opts = {}) {
   return out;
 }
 
-/** Уровень персонажа: сколько раз он вырос. Начинается с нуля, потолок MAX_LVL. */
+/** Уровень персонажа: сколько раз вырос минус сколько раз упал. Начинается с нуля, от -MAX_LVL до MAX_LVL. */
 export function level(weeks, who) {
-  return weeks.filter((wk) => wk.lvlUp[who]).length;
+  return weeks.filter((wk) => wk.lvlUp[who]).length - weeks.filter((wk) => wk.lvlDown[who]).length;
 }
 
 /** Неотработанные штрафы человека на сегодня и срок самого раннего. */
@@ -385,7 +418,7 @@ export function preview(state, today, { who, kind, day, n = 1, bad = false }) {
 
 /**
  * Какой возглас показать после отметки. Считается по состоянию до записи события.
- * Возвращает код: danger, foul, treat, hookah-ok, club-over, club-bad, club-ok, paid, paid-part, norm, late, good.
+ * Возвращает код: danger, debt, foul, treat, hookah-ok, club-over, club-bad, club-ok, paid, paid-part, norm, late, good.
  */
 export function shoutFor(state, today, { who, kind, day, n = 1, bad = false }) {
   const s = normalize(state.settings);
@@ -396,6 +429,7 @@ export function shoutFor(state, today, { who, kind, day, n = 1, bad = false }) {
   if (kind === 'hookah') {
     const sameDay = hookahs.filter((e) => e.day === day).reduce((sum, e) => sum + qty(e), 0);
     if (sameDay + n > 2) return 'danger';
+    if (after.foul && after.foul.reasons.includes('debt')) return 'debt';
     if (after.foul) return 'foul';
     // перерыв считаем от прошлого кальяна, а если его не было, от начала дневника
     const before = hookahs.map((e) => e.day).filter((d) => d < day).sort().pop();
@@ -467,5 +501,5 @@ export function preWeek(state, w) {
   const counts = {};
   for (const kind of KINDS) counts[kind] = [0, 0];
   for (const e of live(state.events)) if (e.day >= w && e.day <= end && counts[e.kind]) counts[e.kind][e.who] += qty(e);
-  return { start: w, end, pre: true, counts, fouls: [], gems: [null, null], lvlUp: [false, false] };
+  return { start: w, end, pre: true, counts, fouls: [], gems: [null, null], lvlUp: [false, false], lvlDown: [false, false] };
 }

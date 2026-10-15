@@ -323,8 +323,12 @@ export function hero(who, state = 'idle', opts = {}) {
 }
 
 /** state: up (жив), laugh (подлечился на нарушении), hurt (осталось мало), down (побежден) */
-/** Джинн-спутник по уровню персонажа: шесть картинок, новая на каждом втором уровне, последняя на десятом. */
+/**
+ * Джинн-спутник по уровню персонажа: шесть картинок, новая на каждом втором уровне, последняя на десятом.
+ * Уровень в минусе: джинн напуган, а с минус третьего от него остается дымок над чашей.
+ */
 export function genieFor(level = 0, opts = {}) {
+  if (level < 0) return picture(level <= -3 ? 'genie-down' : 'genie-hurt', opts);
   const tier = 2 * Math.floor(Math.max(0, Math.min(10, level)) / 2);
   return picture(`genie-lvl-${tier}`, opts);
 }

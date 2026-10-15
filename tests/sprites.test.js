@@ -28,6 +28,8 @@ test('у каждого героя и у джинна есть файл на к�
   assert.match(genieFor(3), /genie-lvl-2\./);
   assert.match(genieFor(10), /genie-lvl-10\./);
   assert.match(genieFor(25), /genie-lvl-10\./);
+  assert.match(genieFor(-1), /genie-hurt\./); // в минусе джинн чахнет
+  assert.match(genieFor(-4), /genie-down\./);
 });
 
 test('значок рисуется как svg', () => {

@@ -369,10 +369,12 @@ const actions = {
     const common = {
       penaltyDays: [1, 14],
       gamesPerPenalty: [1, 5],
+      debtX: [1, 5],
       needSport: [0, 14],
       needCowork: [0, 7],
       lvlWeeks: [1, 8],
       lvlGems: [1, 3],
+      lvlDownGems: [0, 2],
     };
     for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, key === 'goalLevel' ? R.MAX_LVL : R.GOAL_MAX];
     if (common[name]) {

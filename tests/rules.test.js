@@ -292,10 +292,49 @@ test('игры в плохом режиме: легкое нарушение, ш
   assert.equal(preview(make(), day(1), { who: 0, kind: 'club', day: day(1) }).foul, null);
 });
 
+test('пока висит штраф, кальян это нарушение и стоит вдвое больше', () => {
+  const planned = (d) => [0, 'hookah', d];
+  // неделя 1: кальян вне плана, штраф не отработан. Неделя 2: кальян по плану и в лимите
+  const owing = make({ events: [[0, 'hookah', day(0)], [0, 'hookah', day(8)]], plans: [planned(day(8))] });
+  let weeks = timeline(owing, day(9));
+  assert.deepEqual(weeks[1].fouls[0].reasons, ['debt']);
+  assert.equal(weeks[1].fouls[0].cost, 2); // не один, а два
+  assert.equal(debtInfo(owing, weeks, 0, day(9)).n, 3);
+
+  // штраф отработан накануне или в тот же день раньше: кальян по плану не нарушение
+  const paidDay = make({ events: [[0, 'hookah', day(0)], [0, 'penalty', day(7)], [0, 'hookah', day(8)]], plans: [planned(day(8))] });
+  assert.equal(timeline(paidDay, day(9))[1].fouls.length, 0);
+  const paidSame = make({ events: [[0, 'hookah', day(0)], [0, 'penalty', day(8)], [0, 'hookah', day(8)]], plans: [planned(day(8))] });
+  assert.equal(timeline(paidSame, day(9))[1].fouls.length, 0);
+
+  // в ту же неделю: первое нарушение один штраф, следующие кальяны под долгом по два, без нарастания
+  const sameWeek = make({ events: [[0, 'hookah', day(0)], [0, 'hookah', day(1)], [0, 'hookah', day(2)]], plans: [planned(day(1))] });
+  weeks = timeline(sameWeek, day(3));
+  assert.deepEqual(weeks[0].fouls.map((f) => [f.reasons.join('+'), f.cost]), [['unplanned', 1], ['debt', 2], ['unplanned+debt', 2]]);
+
+  // полштрафа за игры это еще не долг
+  const half = make({ events: [[0, 'club', day(0), { bad: true }], [0, 'hookah', day(1)]], plans: [planned(day(1))] });
+  assert.equal(timeline(half, day(2))[0].fouls.filter((f) => f.kind === 'hookah').length, 0);
+
+  // у друга свой счет: мой долг его кальян не трогает
+  const friend = make({ events: [[0, 'hookah', day(0)], [1, 'hookah', day(1)]], plans: [[1, 'hookah', day(1)]] });
+  assert.equal(timeline(friend, day(2))[0].fouls.filter((f) => f.who === 1).length, 0);
+
+  // множитель из настроек: при одном кальян под долгом все равно нарушение, но обычной цены
+  const mild = make({ settings: { debtX: 1 }, events: [[0, 'hookah', day(0)], [0, 'hookah', day(8)]], plans: [planned(day(8))] });
+  assert.equal(timeline(mild, day(9))[1].fouls[0].cost, 1);
+
+  // возглас и предпросмотр
+  const say = shoutFor(owing, day(9), { who: 0, kind: 'hookah', day: day(9), n: 1 });
+  assert.equal(say, 'debt');
+});
+
 test('эскалация: второе нарушение за неделю стоит два штрафа, у каждого свой счет', () => {
+  // первый штраф отработан сразу, поэтому второй кальян не под долгом: просто второе нарушение
   const state = make({
     events: [
       [0, 'hookah', day(0)],
+      [0, 'penalty', day(0)],
       [0, 'hookah', day(1)],
       [1, 'hookah', day(1)],
     ],
@@ -307,9 +346,9 @@ test('эскалация: второе нарушение за неделю ст
     [0, 2],
     [1, 1],
   ]);
-  assert.deepEqual(weeks[0].debt, [3, 1]);
-  assert.equal(debtInfo(state, weeks, 0, day(1)).n, 3);
-  assert.equal(debtInfo(state, weeks, 0, day(1)).due, day(2));
+  assert.deepEqual(weeks[0].debt, [2, 1]);
+  assert.equal(debtInfo(state, weeks, 0, day(1)).n, 2);
+  assert.equal(debtInfo(state, weeks, 0, day(1)).due, day(3));
 });
 
 test('штраф гасит долг, срок считается от самого раннего неотработанного и берется из настроек', () => {
@@ -392,9 +431,10 @@ test('уровень персонажа: с нуля, плюс один за д�
   const state = make({
     events: [
       ...clubs3(0, 0), // неделя 1: у первого ноль
-      [0, 'hookah', day(8)], // недели 2 и 3: кальян вне плана, но в лимите, это два бриллианта
+      [0, 'hookah', day(8)], // недели 2 и 3: кальян по плану и в лимите, это два бриллианта
       ...clubs3(1, 14), // неделя 3: у второго ноль, серия прервана
     ],
+    plans: [[0, 'hookah', day(8)]],
   });
   assert.equal(level(timeline(state, day(8)), 1), 0); // одной недели мало
   const weeks = timeline(state, day(35));
@@ -407,8 +447,17 @@ test('уровень персонажа: с нуля, плюс один за д�
     [true, true], // после роста счет недель начинается заново
     [false, false], // текущая неделя не закрыта
   ]);
-  assert.equal(level(weeks, 0), 2);
-  assert.equal(level(weeks, 1), 2);
+  // недели на ноль бриллиантов сняли по уровню
+  assert.deepEqual(weeks.map((w) => w.lvlDown), [
+    [true, false],
+    [false, false],
+    [false, true],
+    [false, false],
+    [false, false],
+    [false, false],
+  ]);
+  assert.equal(level(weeks, 0), 1);
+  assert.equal(level(weeks, 1), 1);
 
   // потолок: выше десятого уровень не растет, и отметок о росте больше нет
   const long = timeline(make({ settings: { lvlWeeks: 1 } }), day(7 * 14));
@@ -420,6 +469,27 @@ test('уровень персонажа: с нуля, плюс один за д�
   const strict = make({ settings: { lvlWeeks: 1, lvlGems: 3 }, events: [...perfect(0, 0), ...perfect(0, 1)] });
   assert.equal(level(timeline(strict, day(21)), 0), 2);
   assert.equal(level(timeline(strict, day(21)), 1), 0);
+});
+
+test('плохая неделя снимает уровень, он уходит в минус; неотработанный штраф тоже снимает', () => {
+  const clubs3 = (from) => [0, 1, 2].map((d) => [0, 'club', day(from + d)]); // ноль бриллиантов
+  const lazy = make({ events: [...clubs3(0), ...clubs3(7), ...clubs3(14)] });
+  const weeks = timeline(lazy, day(21));
+  assert.deepEqual(weeks.slice(0, 3).map((w) => w.lvlDown[0]), [true, true, true]);
+  assert.equal(level(weeks, 0), -3);
+  assert.equal(level(weeks, 1), 1); // у второго пустые недели на два бриллианта: подряд две, плюс один
+
+  // неделя на три бриллианта, но кальян вне плана и штраф не отработан
+  const owing = make({ events: [...perfect(0, 0), [0, 'hookah', day(5)]] });
+  assert.equal(timeline(owing, day(8))[0].lvlDown[0], false); // срок до вторника еще не вышел
+  assert.equal(timeline(owing, day(9))[0].lvlDown[0], true);
+  assert.equal(level(timeline(owing, day(16)), 0), -2); // штраф не сгорел: следующая неделя тоже минус
+  const paid = make({ events: [...perfect(0, 0), [0, 'hookah', day(5)], [0, 'penalty', day(8)]] });
+  assert.equal(timeline(paid, day(9))[0].lvlDown[0], false);
+
+  // число из настроек: плохой считается только неделя на ноль
+  const soft = make({ settings: { lvlDownGems: 0 }, events: [[0, 'gym', day(0)], ...clubs3(0)] }); // один бриллиант
+  assert.equal(timeline(soft, day(7))[0].lvlDown[0], false);
 });
 
 test('лимиты из настроек: стартовые и на конкретную неделю, каждому свои', () => {
