@@ -2,7 +2,7 @@
 // Все пользовательские строки проходят через esc(). Состояние показываем картинкой,
 // слова остаются только там, где без них непонятно.
 
-import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, MAX_LVL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
+import { GOAL_KEYS, GOAL_MAX, MAX_CLUB, MAX_LEVEL, PLAN_KINDS, SPORT, addDays, cleanDays, dow, monthWeeks, planBlock, preview, qty, weekDays } from './rules.js';
 import * as C from './copy.js';
 import { gem, genieFor, hero, icon, navIcon, prop, sticker, torch } from './sprites.js';
 
@@ -75,13 +75,17 @@ function room(m, who) {
   const mood = m.moods[who];
   // джинн это спутник: новая картинка на каждом втором уровне, на нечетном он чуть подрастает
   const lvl = m.levels[who];
-  const grow = lvl < 0 ? '0.8' : lvl % 2 && lvl < MAX_LVL ? '1.07' : '1';
+  // картинок шесть, до десятого уровня; дальше джинн уже самый большой
+  const grow = lvl < 0 ? '0.8' : lvl % 2 && lvl < 10 ? '1.07' : '1';
   const debt = m.debts[who];
   const due = debt.n ? (debt.due < m.today ? 'срок вышел' : C.byEndOf(debt.due)) : '';
-  const debtChip = debt.n
-    ? `<button class="debt" type="button" data-act="log-open" data-who="${who}" data-key="debt-${who}"
-        aria-label="${name}: ${C.nPenalty(debt.n)} не отработано, ${due}. отметить">
-        <span class="chip is-foul">${icon('penalty')}</span><span class="hand">${debt.n > 1 ? `×${debt.n} ` : ''}${due}</span></button>`
+  // висит штраф: красная полоса сверху запаса, касание открывает отметку
+  const owe = debt.n
+    ? `<button class="owe" type="button" data-act="log-open" data-who="${who}" data-key="debt-${who}"
+        aria-label="${name}: в штрафе, ${C.nPenalty(debt.n)}, ${due}. отработать">
+        <span class="owe-icon">${icon('penalty')}</span>
+        <span class="owe-text"><b>в штрафе: ${C.nPenalty(debt.n)}</b><span>${due}</span></span>
+        <span class="owe-go">отработать</span></button>`
     : '';
   // полезное за неделю: сколько раз был спорт, бассейн и коворкинг
   const good = ['gym', 'pool', 'cowork']
@@ -91,12 +95,13 @@ function room(m, who) {
   const period = wk.periodWeeks[who] > 1 ? '<span class="stat-note">на две недели</span>' : '';
   // пока висит штраф, кальян нельзя: напоминание прямо у счетчика
   const owing = m.debts[who].n ? '<span class="stat-note is-foul">сначала штраф</span>' : '';
-  return `<section class="scene${who === m.me ? ' is-me' : ''}" aria-label="${name}">
+  return `<section class="scene${who === m.me ? ' is-me' : ''}${debt.n ? ' is-owing' : ''}" aria-label="${name}">
     <div class="room" style="--genie: ${grow}">
       ${hero(who, mood, { size: 112, cls: `room-hero${mood === 'sleep' ? '' : ' bob'}`, label: `${name}: ${C.MOOD[mood]}` })}
       ${genieFor(lvl, { size: 160, cls: 'room-genie bob bob-slow', label: `джинн, уровень ${lvl}` })}
     </div>
     <div class="stock">
+      ${owe}
       <p class="who"><span class="who-name">${name}</span><span class="lvl" aria-label="уровень ${lvl}">lvl ${lvl}</span></p>
       <dl class="stats">
         <div class="stat"><dt><span>полезное за неделю</span></dt><dd class="goods">${good}</dd></div>
@@ -104,7 +109,6 @@ function room(m, who) {
         ${stat('club', 'игры', used(t))}
         ${wk.gems[who] == null ? '' : `<div class="stat"><dt>${gem(true)}<span>неделя</span></dt><dd>${gemsMark(m, wk, who)}</dd></div>`}
       </dl>
-      ${debtChip}
     </div>
   </section>`;
 }
@@ -378,6 +382,8 @@ function rules(m) {
   const item = (pic, title, body) => `<li class="rule"><span class="rule-pic">${pic}</span><div><h2>${title}</h2><p>${body}</p></div></li>`;
   const gemRow = (n, text) => `<li><span class="gems">${[0, 1, 2].map((i) => gem(i < n)).join('')}</span><span>${text}</span></li>`;
   const s = m.s;
+  const dropRule = `После ${s.dropWeeks > 1 ? `${C.nWeeks(s.dropWeeks)} подряд` : 'недели'}, где бриллиантов ${s.dropGems}${s.dropGems < 3 ? ' или больше' : ''}, лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели.`;
+  const downRule = s.lvlDownWeeks > 1 ? `${C.nWeeks(s.lvlDownWeeks)} подряд снимают один уровень` : 'снимает один уровень';
   const lvlRule =
     s.lvlWeeks > 1
       ? `за каждые ${C.nWeeks(s.lvlWeeks)} подряд, в которых бриллиантов ${s.lvlGems}${s.lvlGems < 3 ? ' или больше' : ''}`
@@ -386,13 +392,13 @@ function rules(m) {
     <section class="rules-panel">
     <div class="rules-head"><h1 class="page-title">правила</h1>${prop('lantern', 76)}</div>
     <ol class="rule-list">
-      ${item(icon('hookah', { scale: 3 }), 'лимит', 'У каждого на неделю свой лимит кальянов и игр, он написан под комнатой: «кальян 1 из 3». После двух недель подряд на три бриллианта лимит кальяна падает на один, пока не дойдет до одного кальяна на две недели. Лимиты можно поправить в меню.')}
+      ${item(icon('hookah', { scale: 3 }), 'лимит', `У каждого на неделю свой лимит кальянов и игр, он написан под комнатой: «кальян 1 из 3». ${dropRule} Лимиты можно поправить в меню.`)}
       ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.')}
       ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день спорта чистый', 'Спорт или бассейн стоят в плане или уже были: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
     </ol>
     <ul class="rule-list">
-      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Кальян сверх лимита, вне плана или в день спорта. За каждое один спорт-штраф: ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Цена не растет. Штрафы не сгорают: неотработанные переходят на следующие недели.`)}
+      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Кальян сверх лимита, вне плана или в день спорта. За каждое ${C.nPenalty(s.foulCost)}, один штраф это ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Цена не растет. Штрафы не сгорают: неотработанные переходят на следующие недели.`)}
       ${item(chip('penalty', 'is-foul', ''), 'сначала штраф', `Пока висит неотработанный штраф, кальян нельзя. Сорвался: это нарушение, и стоит каждый такой кальян ${C.nPenalty(s.debtX)}.`)}
       ${item(chip('club', 'is-foul', ''), 'игры', `При отметке выбираем режим: нормально или плохо. Плохо или сверх лимита это нарушение полегче: ${C.PENALTY_PART[s.gamesPerPenalty]}${s.gamesPerPenalty > 1 ? `, то есть один штраф за каждые ${s.gamesPerPenalty} таких` : ''}.`)}
     </ul>
@@ -404,7 +410,7 @@ function rules(m) {
         ${gemRow(1, 'превышены оба лимита, или один и спорта мало. Спорт при этом был')}
         ${gemRow(0, 'лимит превышен, спорта не было')}
       </ul>
-      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}, до lvl ${MAX_LVL}. Плохая неделя снимает один уровень: бриллиантов ${s.lvlDownGems} или меньше, или штраф не отработан к сроку. Уровень может уйти в минус. Вместе с уровнем растет джинн, а в минусе он чахнет.</p>
+      <p class="key-note">Бассейн считается как спорт, штрафное занятие не считается. Уровень персонажа начинается с lvl 0 и растет на один ${lvlRule}, до lvl ${s.lvlMax}. Плохая неделя (бриллиантов ${s.lvlDownGems} или меньше, или штраф не отработан к сроку) ${downRule}. Уровень может уйти в минус, до lvl -${s.lvlMax}. Вместе с уровнем растет джинн, а в минусе он чахнет.</p>
     </section>
     </section>
   </main>`;
@@ -622,7 +628,9 @@ export function menuSheet(m) {
     <section class="set">
       <h3>лимиты в неделю, начиная ${m.limitWeekIsFirst ? 'с первой' : 'с этой'}</h3>
       ${limits}
-      <p class="hint">Лимит кальяна сам падает на один после двух недель подряд на три бриллианта.</p>
+      <p class="hint">Лимит кальяна сам падает на один после недель подряд с бриллиантами:</p>
+      ${numRow('недель подряд', 'dropWeeks', s.dropWeeks, { min: 1, max: 8, off })}
+      ${numRow('бриллиантов в каждой, не меньше', 'dropGems', s.dropGems, { min: 1, max: 3, off })}
     </section>
     <section class="set">
       <h3>три бриллианта за неделю</h3>
@@ -632,14 +640,18 @@ export function menuSheet(m) {
     </section>
     <section class="set">
       <h3>уровень персонажа</h3>
-      <p class="hint">Растет на один за недели подряд, в которых хватает бриллиантов. Падает на один за плохую неделю: мало бриллиантов или штраф не отработан к сроку. Может уйти в минус.</p>
-      ${numRow('недель подряд', 'lvlWeeks', s.lvlWeeks, { min: 1, max: 8, off })}
+      <p class="hint">Растет на один за недели подряд, в которых хватает бриллиантов:</p>
+      ${numRow('вверх: недель подряд', 'lvlWeeks', s.lvlWeeks, { min: 1, max: 8, off })}
       ${numRow('бриллиантов за неделю, не меньше', 'lvlGems', s.lvlGems, { min: 1, max: 3, off })}
+      <p class="hint">Падает на один за плохие недели подряд: мало бриллиантов или штраф не отработан к сроку.</p>
+      ${numRow('вниз: плохих недель подряд', 'lvlDownWeeks', s.lvlDownWeeks, { min: 1, max: 8, off })}
       ${numRow('плохая неделя: бриллиантов не больше', 'lvlDownGems', s.lvlDownGems, { min: 0, max: 2, off })}
+      ${numRow('потолок уровня', 'lvlMax', s.lvlMax, { min: 1, max: 50, off })}
     </section>
     <section class="set">
       <h3>штраф</h3>
-      <p class="hint">За нарушение ${C.PENALTY}.</p>
+      <p class="hint">Один штраф это ${C.PENALTY}.</p>
+      ${numRow('нарушение с кальяном, штрафов', 'foulCost', s.foulCost, { min: 1, max: 5, off })}
       ${numRow('срок, дней', 'penaltyDays', s.penaltyDays, { min: 1, max: 14, off })}
       ${numRow('кальян при неотработанном штрафе, штрафов', 'debtX', s.debtX, { min: 1, max: 5, off })}
       ${numRow('нарушений в играх на один штраф', 'gamesPerPenalty', s.gamesPerPenalty, { min: 1, max: 5, off })}
@@ -693,7 +705,7 @@ export function goalSheet(m, sel) {
     <section class="set goal">
       <div class="goal-top"><span class="plate plate-show">${sticker(id)}</span><p>${meta.how}</p></div>
       <ul class="goal-list">${rows}</ul>
-      ${key ? numRow('сколько нужно', key, m.s[key], { min: 1, max: id === 'level' ? MAX_LVL : GOAL_MAX, off: m.kind === 'demo' }) : ''}
+      ${key ? numRow('сколько нужно', key, m.s[key], { min: 1, max: id === 'level' ? m.s.lvlMax : GOAL_MAX, off: m.kind === 'demo' }) : ''}
     </section>`;
 }
 

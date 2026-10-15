@@ -5,8 +5,6 @@
 /** Уровень лимита кальяна: 7..1 это кальянов в неделю, 0 это один кальян на две недели (цель). */
 export const MAX_LEVEL = 7;
 export const MAX_CLUB = 7;
-/** Потолок уровня персонажа. */
-export const MAX_LVL = 10;
 
 export const DEFAULTS = {
   levelStart: 4,
@@ -15,16 +13,24 @@ export const DEFAULTS = {
   penaltyDays: 2,
   // игры: нарушение полегче, один штраф набегает за столько нарушений
   gamesPerPenalty: 2,
+  // цена нарушения с кальяном, в штрафах
+  foulCost: 1,
   // кальян, пока висит неотработанный штраф: нарушение, и стоит оно столько штрафов
   debtX: 2,
+  // лимит кальяна падает на один после стольких недель подряд с таким числом бриллиантов
+  dropWeeks: 2,
+  dropGems: 3,
   // норма недели для трех бриллиантов
   needSport: 2,
   needCowork: 1,
   // уровень персонажа растет за недели подряд с таким числом бриллиантов
   lvlWeeks: 2,
   lvlGems: 2,
-  // плохая неделя снимает уровень: бриллиантов не больше этого или штраф не отработан к сроку
+  // плохая неделя: бриллиантов не больше этого или штраф не отработан к сроку; столько плохих подряд снимают уровень
   lvlDownGems: 1,
+  lvlDownWeeks: 1,
+  // уровень от -lvlMax до lvlMax
+  lvlMax: 10,
   // цели достижений в итогах
   goalSport: 10,
   goalCowork: 5,
@@ -96,14 +102,19 @@ export function normalize(settings) {
   s.limitSet = s.limitSet || {};
   s.penaltyDays = clampInt(s.penaltyDays, 1, 14);
   s.gamesPerPenalty = clampInt(s.gamesPerPenalty, 1, 5);
+  s.foulCost = clampInt(s.foulCost, 1, 5);
   s.debtX = clampInt(s.debtX, 1, 5);
+  s.dropWeeks = clampInt(s.dropWeeks, 1, 8);
+  s.dropGems = clampInt(s.dropGems, 1, 3);
   s.needSport = clampInt(s.needSport, 0, 14);
   s.needCowork = clampInt(s.needCowork, 0, 7);
   s.lvlWeeks = clampInt(s.lvlWeeks, 1, 8);
   s.lvlGems = clampInt(s.lvlGems, 1, 3);
   s.lvlDownGems = clampInt(s.lvlDownGems, 0, 2);
+  s.lvlDownWeeks = clampInt(s.lvlDownWeeks, 1, 8);
+  s.lvlMax = clampInt(s.lvlMax, 1, 50);
   for (const key of Object.values(GOAL_KEYS)) s[key] = clampInt(s[key], 1, GOAL_MAX);
-  s.goalLevel = Math.min(s.goalLevel, MAX_LVL);
+  s.goalLevel = Math.min(s.goalLevel, s.lvlMax);
   return s;
 }
 
@@ -216,7 +227,7 @@ function summarize(ctx) {
       if (reasons.length) list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'club', reasons, light: true });
     });
     // Счет идет в долях: в одном штрафе unit долей. Нарушение в играх это одна доля.
-    // Кальян: нарушение стоит один штраф, цена не растет.
+    // Кальян: нарушение стоит foulCost штрафов, цена не растет.
     // Пока висит целый неотработанный штраф, любой кальян это нарушение ценой debtX штрафов.
     const penalties = mine.filter((e) => e.kind === 'penalty');
     const paidBefore = (f) => penalties.filter((p) => p.day < f.day || (p.day === f.day && (p.at || 0) < (f.at || 0))).length * unit;
@@ -225,7 +236,7 @@ function summarize(ctx) {
         const inDebt = owed[who] - paidBefore(f) >= unit;
         if (inDebt) f.reasons.push('debt');
         if (!f.reasons.length) continue;
-        f.cost = inDebt ? s.debtX : 1;
+        f.cost = inDebt ? s.debtX : s.foulCost;
         f.units = f.cost * unit;
       } else {
         f.cost = 0;
@@ -259,12 +270,12 @@ function summarize(ctx) {
 
 /**
  * Все недели от первой до текущей (или до opts.through, если нужна будущая).
- * Лимит кальяна человека падает на один после двух его закрытых недель подряд на три бриллианта,
+ * Лимит кальяна человека падает на один после dropWeeks его закрытых недель подряд, где бриллиантов не меньше dropGems,
  * лимит клуба вместе с ним, но не ниже одного. Настройка limitSet задает лимиты с нужной недели.
  * Уровень персонажа растет на один за каждые lvlWeeks закрытых недель подряд, где бриллиантов не меньше lvlGems;
- * неделя, на которой он вырос, помечена lvlUp. Выше MAX_LVL уровень не растет.
- * Плохая неделя снимает один уровень (lvlDown) и обнуляет счет недель подряд: бриллиантов не больше lvlDownGems
- * или штраф не отработан к сроку. Уровень может уйти в минус, до -MAX_LVL. Штрафы не сгорают:
+ * неделя, на которой он вырос, помечена lvlUp. Выше lvlMax уровень не растет.
+ * Плохая неделя обнуляет счет недель подряд, а lvlDownWeeks плохих подряд снимают один уровень (lvlDown):
+ * бриллиантов не больше lvlDownGems или штраф не отработан к сроку. Уровень может уйти в минус, до -lvlMax. Штрафы не сгорают:
  * пока висят, каждая следующая неделя тоже плохая.
  */
 export function timeline(state, today, opts = {}) {
@@ -278,6 +289,7 @@ export function timeline(state, today, opts = {}) {
   const clubs = perWho(s.clubStart).map((v) => clampInt(v ?? DEFAULTS.clubStart, 0, MAX_CLUB));
   const fives = [0, 0];
   const runs = [0, 0];
+  const badRuns = [0, 0];
   const lvls = [0, 0];
   const periodStarts = [s.start, s.start];
   const owed = [0, 0];
@@ -310,21 +322,24 @@ export function timeline(state, today, opts = {}) {
     for (const who of [0, 1]) {
       const bad = wk.gems[who] <= s.lvlDownGems || (graceOver && wk.debt[who] > 0);
       if (bad) {
-        if (lvls[who] > -MAX_LVL) {
+        runs[who] = 0;
+        badRuns[who] += 1;
+        if (badRuns[who] >= s.lvlDownWeeks && lvls[who] > -s.lvlMax) {
           wk.lvlDown[who] = true;
           lvls[who] -= 1;
+          badRuns[who] = 0;
         }
-        runs[who] = 0;
       } else {
+        badRuns[who] = 0;
         runs[who] = wk.gems[who] >= s.lvlGems ? runs[who] + 1 : 0;
-        if (runs[who] >= s.lvlWeeks && lvls[who] < MAX_LVL) {
+        if (runs[who] >= s.lvlWeeks && lvls[who] < s.lvlMax) {
           wk.lvlUp[who] = true;
           lvls[who] += 1;
           runs[who] = 0;
         }
       }
-      fives[who] = wk.gems[who] === 3 ? fives[who] + 1 : 0;
-      if (fives[who] >= 2 && levels[who] > 0) {
+      fives[who] = wk.gems[who] >= s.dropGems ? fives[who] + 1 : 0;
+      if (fives[who] >= s.dropWeeks && levels[who] > 0) {
         levels[who] -= 1;
         if (clubs[who] > 1) clubs[who] -= 1;
         fives[who] = 0;
@@ -335,7 +350,7 @@ export function timeline(state, today, opts = {}) {
   return out;
 }
 
-/** Уровень персонажа: сколько раз вырос минус сколько раз упал. Начинается с нуля, от -MAX_LVL до MAX_LVL. */
+/** Уровень персонажа: сколько раз вырос минус сколько раз упал. Начинается с нуля, от -lvlMax до lvlMax. */
 export function level(weeks, who) {
   return weeks.filter((wk) => wk.lvlUp[who]).length - weeks.filter((wk) => wk.lvlDown[who]).length;
 }

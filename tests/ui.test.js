@@ -58,6 +58,11 @@ test('листы: отметить, план, меню, достижение', (
     assert.doesNotMatch(html, /undefined|NaN|\[object Object\]/);
   }
   assert.match(sheets[2], /data-kind="penalty"/);
+  // у Павла висит штраф: его карточка красная, сверху полоса «в штрафе»
+  const pavel = UI.page(model({ me: 1 }));
+  assert.match(pavel, /class="scene is-me is-owing"/);
+  assert.match(pavel, /class="owe"[\s\S]*в штрафе: 1 штраф/);
+  assert.doesNotMatch(UI.page(model({ me: 0 })), /is-owing/);
   assert.match(sheets[5], /data-name="goalSport"/); // цель меняется в листе достижения
   assert.doesNotMatch(sheets[6], /data-act="num"/); // у конца лестницы числа нет
 });

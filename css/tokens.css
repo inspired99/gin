@@ -29,6 +29,8 @@
   --pen: #a53a06;
   /* нарушение: рамка и крестик на отметке */
   --foul: #c6281c;
+  --foul-deep: #8f1a12;
+  --on-foul: #fff6ea;
 
   /* шрифты */
   --font-display: 'Press Start 2P', 'Geist', system-ui, sans-serif;

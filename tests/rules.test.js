@@ -492,6 +492,31 @@ test('плохая неделя снимает уровень, он уходит
   assert.equal(timeline(soft, day(7))[0].lvlDown[0], false);
 });
 
+test('пороги из настроек: цена нарушения, недели для уровня вниз, потолок, падение лимита', () => {
+  const clubs3 = (from) => [0, 1, 2].map((d) => [0, 'club', day(from + d)]); // ноль бриллиантов
+
+  // цена обычного нарушения
+  const cost = make({ settings: { foulCost: 2 }, events: [[0, 'hookah', day(0)]] });
+  assert.equal(timeline(cost, day(1))[0].fouls[0].cost, 2);
+
+  // вниз только за две плохие недели подряд; хорошая неделя между ними обнуляет счет.
+  // Плохой тут считается неделя на два бриллианта и меньше, поэтому пустые недели плохие и без штрафов
+  const slow = make({ settings: { lvlDownWeeks: 2, lvlDownGems: 2 }, events: perfect(0, 2) });
+  const weeks = timeline(slow, day(35));
+  assert.deepEqual(weeks.slice(0, 5).map((w) => w.lvlDown[0]), [false, true, false, false, true]);
+  assert.equal(level(weeks, 0), -2);
+
+  // потолок и пол уровня
+  const fast = make({ settings: { lvlWeeks: 1, lvlMax: 3 } });
+  assert.equal(level(timeline(fast, day(7 * 8)), 0), 3);
+  const lazy = make({ settings: { lvlMax: 2 }, events: [...clubs3(0), ...clubs3(7), ...clubs3(14)] });
+  assert.equal(level(timeline(lazy, day(21)), 0), -2);
+
+  // лимит падает после одной недели на два бриллианта и больше
+  const drop = make({ settings: { dropWeeks: 1, dropGems: 2 } });
+  assert.deepEqual(timeline(drop, day(15)).map((w) => w.limit[0]), [4, 3, 2]);
+});
+
 test('лимиты из настроек: стартовые и на конкретную неделю, каждому свои', () => {
   const start = timeline(make({ settings: { levelStart: { p0: 6, p1: 2 }, clubStart: { p0: 1, p1: 5 } } }), day(1));
   assert.deepEqual(start[0].limit, [6, 2]);

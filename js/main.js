@@ -370,13 +370,18 @@ const actions = {
       penaltyDays: [1, 14],
       gamesPerPenalty: [1, 5],
       debtX: [1, 5],
+      foulCost: [1, 5],
+      dropWeeks: [1, 8],
+      dropGems: [1, 3],
+      lvlDownWeeks: [1, 8],
+      lvlMax: [1, 50],
       needSport: [0, 14],
       needCowork: [0, 7],
       lvlWeeks: [1, 8],
       lvlGems: [1, 3],
       lvlDownGems: [0, 2],
     };
-    for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, key === 'goalLevel' ? R.MAX_LVL : R.GOAL_MAX];
+    for (const key of Object.values(R.GOAL_KEYS)) common[key] = [1, key === 'goalLevel' ? m.s.lvlMax : R.GOAL_MAX];
     if (common[name]) {
       const [lo, hi] = common[name];
       store.write([{ path: `settings/${name}`, value: clamp(m.s[name] + d, lo, hi) }]);
