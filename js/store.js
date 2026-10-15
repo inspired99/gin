@@ -38,6 +38,13 @@ export const prefs = {
   setView: (view) => ls.set('fixgaz:view', view),
 };
 
+/** Что это устройство знает о дневнике: последний снимок и неотправленные записи. Пусто, если не знает ничего. */
+export function readLocalRoom(room) {
+  const state = clone(ls.get(`fixgaz:cache:${room}`, {}));
+  for (const w of ls.get(`fixgaz:outbox:${room}`, [])) setPath(state, w.path, w.value);
+  return state;
+}
+
 export function newRoomKey() {
   const abc = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const bytes = crypto.getRandomValues(new Uint8Array(24));

@@ -51,6 +51,11 @@ function actions(m, cls) {
 }
 
 function banner(m) {
+  if (m.stray) {
+    return `<p class="banner">На этом устройстве был другой дневник, код <b>${esc(m.stray)}</b>. Перенести его отметки в общий?
+      <span class="banner-acts"><button class="btn btn-sm" type="button" data-act="stray-merge" data-key="stray-merge">перенести</button>
+      <button class="link" type="button" data-act="stray-skip" data-key="stray-skip">не нужно</button></span></p>`;
+  }
   if (m.kind === 'demo') {
     return `<p class="banner">Пример с выдуманным журналом, записи не сохраняются. <a href="./">открыть свой дневник</a></p>`;
   }
@@ -116,9 +121,14 @@ function room(m, who) {
 /** По умолчанию на главной только свой персонаж; друга показывает и прячет эта кнопка. */
 function otherToggle(m) {
   const name = esc(m.players[m.other].name);
+  // друг ни разу не заходил в этот дневник и ничего в нем не отметил: скорее всего у вас два разных дневника
+  const alone = m.kind !== 'demo' && !m.fixed && !m.joined[m.other] && !m.events.some((e) => e.who === m.other);
+  const note = alone
+    ? `<p class="alone">${name} в этом дневнике пока нет: ни входа, ни отметок. Если отметки у него есть, у вас разные дневники: сверьте код дневника в меню${m.roomCode ? `, у тебя <b>${esc(m.roomCode)}</b>` : ''}.</p>`
+    : '';
   return `<button class="other-toggle" type="button" data-act="toggle-other" data-key="toggle-other" aria-pressed="${m.showOther}">
     ${hero(m.other, 'idle', { size: 44 })}<span>${name}: ${m.showOther ? 'скрыть' : 'показать'}</span>
-  </button>`;
+  </button>${note}`;
 }
 
 function scene(m) {
@@ -672,6 +682,8 @@ export function menuSheet(m) {
     <section class="set">
       <h3>ссылка на дневник</h3>
       <p class="hint">Кто знает ссылку, тот может читать и писать.</p>
+      ${m.fixed ? '<p class="hint">Дневник у вас один на двоих: любой телефон открывает его по адресу сайта.</p>' : ''}
+      ${m.roomCode && !m.fixed ? `<p class="hint">Код дневника: <b>${esc(m.roomCode)}</b>. У второго в меню должен быть такой же, иначе у вас разные дневники.</p>` : ''}
       ${local}
       <button class="btn" type="button" data-act="copy-link" data-key="copy-link-menu" ${readOnly}>скопировать ссылку</button>
     </section>
@@ -685,7 +697,7 @@ export function menuSheet(m) {
       <h3>журнал</h3>
       <div class="row">
         <button class="btn btn-sm" type="button" data-act="export" data-key="export">скачать журнал (JSON)</button>
-        ${off ? '' : `<button class="link" type="button" data-act="leave" data-key="leave">забыть дневник на этом устройстве</button>`}
+        ${off || m.fixed ? '' : `<button class="link" type="button" data-act="leave" data-key="leave">забыть дневник на этом устройстве</button>`}
       </div>
     </section>`;
 }
@@ -711,7 +723,7 @@ export function goalSheet(m, sel) {
     </section>`;
 }
 
-export function welcome({ startDay, local, missing }) {
+export function welcome({ startDay, local, missing, fixed = false }) {
   const card = (who, name) => `<div class="pick">
       ${hero(who, 'idle', { size: 96 })}
       <label class="field"><span>имя</span><input type="text" name="n${who}" maxlength="20" autocomplete="off" value="${name}" required></label>
@@ -728,12 +740,12 @@ export function welcome({ startDay, local, missing }) {
       <p class="form-error" role="alert" hidden></p>
       <button class="btn btn-main" type="submit">создать дневник</button>
     </form>
-    <form id="join" class="create join" novalidate>
+    ${fixed ? '' : `<form id="join" class="create join" novalidate>
       <label class="field"><span>уже есть дневник? вставь ссылку на него</span>
         <input type="text" name="link" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" placeholder="https://…#room=…" required></label>
       <p class="form-error" role="alert" hidden></p>
       <button class="btn" type="submit">открыть дневник</button>
-    </form>
+    </form>`}
   </main>`;
 }
 

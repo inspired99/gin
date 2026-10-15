@@ -541,6 +541,14 @@ main > .scene.is-owing {
   }
 }
 
+/* друга нет в этом дневнике: подсказка под кнопкой, прямо на стене */
+.alone {
+  margin-top: var(--s2);
+  max-width: 56ch;
+  font-size: var(--text-sm);
+  color: var(--on-wall);
+}
+
 /* показать или спрятать друга */
 .other-toggle {
   display: inline-flex;
@@ -1805,6 +1813,15 @@ ol.rule-list .rule h2::before {
 /* подключение к готовому дневнику по ссылке */
 .join .field {
   width: 100%;
+}
+
+/* кнопки внутри плашки: перенести отметки или отказаться */
+.banner-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s3);
+  margin-top: var(--s2);
 }
 
 /* версия сайта внизу главной: мелко, на стене */

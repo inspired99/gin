@@ -73,5 +73,10 @@ export function buildModel(state, today, view) {
     pending: view.pending || 0,
     kind: view.kind || 'local',
     build: view.build || null, // версия сайта: хеш и время коммита, у себя на машине пусто
+    // заходил ли каждый в этот дневник; первые знаки ключа комнаты, чтобы сверить, что дневник один
+    joined: [0, 1].map((who) => Boolean(s.joined && s.joined[`p${who}`])),
+    roomCode: view.room && view.kind !== 'demo' ? view.room.slice(0, 4) : '',
+    fixed: Boolean(view.fixed), // общий дневник зашит в сайт
+    stray: view.stray || '', // код другого дневника на этом устройстве, который можно перенести
   };
 }

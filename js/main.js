@@ -1,15 +1,16 @@
 // Запуск fixgaz: выбор хранилища, модель для интерфейса, обработка действий.
 
-import { DB_URL } from '../config.js';
+import { DB_URL, ROOM } from '../config.js';
 import * as R from './rules.js';
 import * as C from './copy.js';
 import * as UI from './ui.js';
 import { demoState } from './demo.js';
 import { buildModel, playersOf } from './model.js';
-import { createStore, newId, newRoomKey, prefs } from './store.js';
+import { createStore, newId, newRoomKey, prefs, readLocalRoom } from './store.js';
 import { firebaseAdapter, localAdapter, memoryAdapter } from './sync.js';
 import { checkVersion, hardReload } from './update.js';
 import { BUILD } from './build.js';
+import { mergeWrites } from './merge.js';
 
 const app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -33,9 +34,10 @@ let sheetState = null;
 let undo = null;
 let toastTimer = null;
 let shownDay = null; // день, для которого нарисован экран
+let stray = null; // ключ другого дневника, который был на этом устройстве до общего
 
 const roomFromHash = () => (location.hash.match(/room=([A-Za-z0-9]+)/) || [])[1] || null;
-const link = () => `${location.origin}${location.pathname}#room=${store.room}`;
+const link = () => (ROOM ? `${location.origin}${location.pathname}` : `${location.origin}${location.pathname}#room=${store.room}`);
 
 function defaultStart(today) {
   return R.dow(today) === 0 ? today : R.addDays(R.weekOf(today), 7);
@@ -44,7 +46,7 @@ function defaultStart(today) {
 // --- модель ------------------------------------------------------------------
 
 function model() {
-  const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind, build: BUILD };
+  const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind, build: BUILD, room: store.room, fixed: Boolean(ROOM), stray: stray ? stray.slice(0, 4) : '' };
   shownDay = R.localDay();
   const built = buildModel(store.state, shownDay, view);
   // границы недели и месяца приводит модель, запоминаем приведенные значения
@@ -67,7 +69,7 @@ function keepFocus(fn) {
 
 function renderWelcome(opts = {}) {
   if (app.querySelector('#create')) return;
-  app.innerHTML = UI.welcome({ startDay: defaultStart(R.localDay()), local: !DB_URL, ...opts });
+  app.innerHTML = UI.welcome({ startDay: defaultStart(R.localDay()), local: !DB_URL, fixed: Boolean(ROOM), ...opts });
 }
 
 function renderSheet(m) {
@@ -200,11 +202,11 @@ function createDiary(form) {
   }
   const today = R.localDay();
   const level = Math.min(R.MAX_LEVEL, Math.max(1, baseline - 1)); // на один кальян меньше, чем сейчас
-  const room = newRoomKey();
+  const room = ROOM || newRoomKey();
   if (store) store.stop();
   store = createStore({ room, adapter: DB_URL ? firebaseAdapter(room, DB_URL) : localAdapter(room) });
   prefs.setRoom(room);
-  history.replaceState(null, '', `#room=${room}`);
+  if (!ROOM) history.replaceState(null, '', `#room=${room}`);
   store.subscribe(render);
   store.start();
   store.write([
@@ -336,6 +338,36 @@ const actions = {
     closeSheet();
     refresh();
   },
+  /** Перенести отметки из дневника, который был на этом устройстве раньше, в общий. */
+  async 'stray-merge'() {
+    const from = stray;
+    if (!from || !store) return;
+    toast('переношу отметки');
+    let source = readLocalRoom(from);
+    try {
+      if (DB_URL) {
+        const res = await fetch(`${DB_URL.replace(/\/+$/, '')}/rooms/${encodeURIComponent(from)}.json`);
+        if (!res.ok) throw new Error(String(res.status));
+        const remote = (await res.json()) || {};
+        source = { events: { ...(remote.events || {}), ...(source.events || {}) }, plan: { ...(remote.plan || {}), ...(source.plan || {}) } };
+      }
+    } catch {
+      toast('Нет сети, перенести не вышло. Попробуй еще раз.');
+      return;
+    }
+    const writes = mergeWrites(store.state, source);
+    if (writes.length) store.write(writes);
+    stray = null;
+    prefs.setRoom(ROOM);
+    render();
+    const back = () => store.write(writes.map((w) => ({ path: `${w.path}/del`, value: true })));
+    toast(writes.length ? `перенесено: ${writes.length}` : 'новых отметок там нет', writes.length ? back : null);
+  },
+  'stray-skip'() {
+    stray = null;
+    prefs.setRoom(ROOM);
+    render();
+  },
   close: closeSheet,
   switch() {
     closeSheet();
@@ -348,6 +380,9 @@ const actions = {
   },
   'i-am'(el) {
     me = Number(el.dataset.who);
+    // отмечаем, что этот человек заходил в дневник: по этому второй видит, что вы в одном дневнике
+    const s = store.state.settings || {};
+    if (!isDemo && !(s.joined && s.joined[`p${me}`])) store.write([{ path: `settings/joined/p${me}`, value: true }]);
     render();
     window.scrollTo(0, 0);
   },
@@ -534,13 +569,21 @@ function boot() {
       queueMicrotask(() => openSheet(state));
     }
   } else {
-    const room = roomFromHash() || prefs.room();
+    // общий дневник зашит в сайт: открываем его, а другой дневник с этого устройства предлагаем перенести
+    const before = [roomFromHash(), prefs.room()].find((r) => r && r !== ROOM) || null;
+    const room = ROOM || roomFromHash() || prefs.room();
     if (!room) {
       renderWelcome();
       return;
     }
-    prefs.setRoom(room);
-    if (!roomFromHash()) history.replaceState(null, '', `#room=${room}`);
+    if (ROOM) {
+      stray = before;
+      if (!stray) prefs.setRoom(ROOM);
+      if (location.hash) history.replaceState(null, '', `${location.pathname}${location.search}`);
+    } else {
+      prefs.setRoom(room);
+      if (!roomFromHash()) history.replaceState(null, '', `#room=${room}`);
+    }
     store = createStore({ room, adapter: DB_URL ? firebaseAdapter(room, DB_URL) : localAdapter(room) });
   }
   store.subscribe(render);

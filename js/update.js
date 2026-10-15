@@ -21,6 +21,7 @@ export const APP_FILES = [
   'js/demo.js',
   'js/update.js',
   'js/build.js',
+  'js/merge.js',
 ];
 
 const KEY = 'fixgaz.version'; // версия, под которую последний раз перечитывали файлы

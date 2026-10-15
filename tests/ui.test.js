@@ -112,6 +112,27 @@ test('версия сайта видна внизу главной и в мен�
   assert.doesNotMatch(UI.page(model({})), /class="build"/);
 });
 
+test('друга нет в дневнике: подсказка сверить код; когда он зашел, подсказки нет', () => {
+  const settings = { players: [{ name: 'Елисей' }, { name: 'Павел' }], start: '2026-10-12', createdDay: TODAY, joined: { p0: true } };
+  const view = { me: 0, kind: 'firebase', status: 'online', room: 'NF8mXTz9YDtztuwsuZcAXZEV' };
+  const alone = UI.page(buildModel({ settings }, TODAY, view));
+  assert.match(alone, /class="alone"[^]*<b>NF8m<\/b>/);
+  assert.match(UI.menuSheet(buildModel({ settings }, TODAY, view)), /Код дневника: <b>NF8m<\/b>/);
+  const together = { settings: { ...settings, joined: { p0: true, p1: true } } };
+  assert.doesNotMatch(UI.page(buildModel(together, TODAY, view)), /class="alone"/);
+  assert.doesNotMatch(UI.page(model({})), /class="alone"/); // в примере не нужна
+});
+
+test('общий дневник: без ссылок и кодов, другой дневник на устройстве предлагают перенести', () => {
+  const fixed = model({ kind: 'firebase', fixed: true, stray: 'Ab12' });
+  const page = UI.page(fixed);
+  assert.match(page, /другой дневник, код <b>Ab12<\/b>[^]*data-act="stray-merge"[^]*data-act="stray-skip"/);
+  const menu = UI.menuSheet(fixed);
+  assert.match(menu, /один на двоих/);
+  assert.doesNotMatch(menu, /data-act="leave"/);
+  assert.doesNotMatch(UI.welcome({ startDay: '2026-10-12', local: false, fixed: true }), /id="join"/);
+});
+
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);

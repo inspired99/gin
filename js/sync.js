@@ -103,8 +103,10 @@ export function firebaseAdapter(room, dbUrl) {
     es.onerror = () => onStat('offline'); // EventSource переподключается сам
   }
 
+  // телефон уснул или сменил сеть: соединение могло тихо умереть, не закрывшись. Переоткрываем всегда,
+  // первым событием сервер пришлет весь дневник заново
   const onVisible = () => {
-    if (document.visibilityState === 'visible' && (!es || es.readyState === EventSource.CLOSED)) open();
+    if (document.visibilityState === 'visible') open();
   };
 
   return {
