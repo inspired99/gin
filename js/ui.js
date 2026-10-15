@@ -730,7 +730,7 @@ export function welcome({ startDay, local, missing, fixed = false }) {
     </div>`;
   return `<main class="welcome" id="main">
     <h1 class="line">дневник режима на двоих</h1>
-    ${missing ? `<p class="banner">По этой ссылке дневника нет. Проверь ссылку у друга или создай новый дневник.</p>` : ''}
+    ${missing ? `<p class="banner">${fixed ? 'Общий дневник еще пустой. Создайте его один раз здесь, второй увидит его сам.' : 'По этой ссылке дневника нет. Проверь ссылку у друга или создай новый дневник.'}</p>` : ''}
     <form id="create" class="create" novalidate>
       <div class="picks">${card(0, 'Елисей')}${card(1, 'Павел')}</div>
       <label class="field field-num"><span>сколько сейчас кальянов в неделю на каждого</span>

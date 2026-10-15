@@ -6,4 +6,4 @@ export const DB_URL = 'https://mygin-fba41-default-rtdb.europe-west1.firebasedat
 
 // Общий дневник на двоих. Если ключ задан, любое устройство и любой значок на домашнем экране
 // открывают именно этот дневник, без ссылок. Ключ виден всем, кто знает адрес сайта.
-export const ROOM = '';
+export const ROOM = 'Vskk3w4YBPmyZjNwqWYNpg3Y';
