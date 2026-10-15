@@ -37,6 +37,8 @@ jobs:
           find _site/assets -name '*.json' -delete
           # по этому файлу открытое приложение узнает, что вышла новая версия
           echo "{\"v\":\"${GITHUB_SHA}\"}" > _site/version.json
+          # версия внутри самого кода: хеш и время коммита, их видно внизу главной и в меню
+          echo "export const BUILD = { v: '${GITHUB_SHA}', at: '$(git log -1 --format=%cI)' };" > _site/js/build.js
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

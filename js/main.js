@@ -9,6 +9,7 @@ import { buildModel, playersOf } from './model.js';
 import { createStore, newId, newRoomKey, prefs } from './store.js';
 import { firebaseAdapter, localAdapter, memoryAdapter } from './sync.js';
 import { checkVersion, hardReload } from './update.js';
+import { BUILD } from './build.js';
 
 const app = document.getElementById('app');
 const sheet = document.getElementById('sheet');
@@ -43,7 +44,7 @@ function defaultStart(today) {
 // --- модель ------------------------------------------------------------------
 
 function model() {
-  const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind };
+  const view = { me, showOther, viewStart, month, mode, screen, status: store.status, pending: store.pending, kind: store.kind, build: BUILD };
   shownDay = R.localDay();
   const built = buildModel(store.state, shownDay, view);
   // границы недели и месяца приводит модель, запоминаем приведенные значения

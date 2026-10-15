@@ -20,6 +20,7 @@ export const APP_FILES = [
   'js/sync.js',
   'js/demo.js',
   'js/update.js',
+  'js/build.js',
 ];
 
 const KEY = 'fixgaz.version'; // версия, под которую последний раз перечитывали файлы

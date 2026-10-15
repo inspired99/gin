@@ -89,6 +89,14 @@ export function weekRange(start) {
   return `${short(start)} - ${short(addDays(start, 6))}`;
 }
 
+/** Когда выложена версия сайта, по времени телефона: «версия от 15.10, 21:40». */
+export function buildText(build) {
+  const d = new Date(build.at);
+  if (Number.isNaN(d.getTime())) return '';
+  const two = (n) => String(n).padStart(2, '0');
+  return `версия от ${two(d.getDate())}.${two(d.getMonth() + 1)}, ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
 /** «4 кальяна в неделю» или «1 кальян на две недели». */
 export const hookahLimitText = (level) => (level >= 1 ? `${nHookah(level)} в неделю` : '1 кальян на две недели');
 

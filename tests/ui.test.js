@@ -105,6 +105,13 @@ test('игры: режим выбирается при отметке и пра�
   assert.match(bad, /плохой режим[^<]*полштрафа/);
 });
 
+test('версия сайта видна внизу главной и в меню, а у себя на машине ее нет', () => {
+  const build = { v: 'abc1234', at: '2026-10-15T18:40:00Z' };
+  assert.match(UI.page(model({ build })), /class="build">версия от \d\d\.\d\d, \d\d:\d\d</);
+  assert.match(UI.menuSheet(model({ build })), /Сейчас стоит версия от/);
+  assert.doesNotMatch(UI.page(model({})), /class="build"/);
+});
+
 test('первый запуск, выбор персонажа, загрузка', () => {
   const players = [{ name: 'Елисей' }, { name: 'Павел' }];
   assert.match(UI.welcome({ startDay: '2026-10-12', local: true }), /id="create"/);

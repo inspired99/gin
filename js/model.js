@@ -14,7 +14,7 @@ export function playersOf(state) {
 /**
  * @param {object} state журнал: settings, events, plan
  * @param {string} today 'YYYY-MM-DD'
- * @param {object} view состояние экрана: me, showOther, viewStart, month, mode, screen, status, pending, kind
+ * @param {object} view состояние экрана: me, showOther, viewStart, month, mode, screen, status, pending, kind, build
  * Возвращает модель; viewStart и month в ней уже приведены к допустимым границам.
  */
 export function buildModel(state, today, view) {
@@ -72,5 +72,6 @@ export function buildModel(state, today, view) {
     status: view.status || 'local',
     pending: view.pending || 0,
     kind: view.kind || 'local',
+    build: view.build || null, // версия сайта: хеш и время коммита, у себя на машине пусто
   };
 }

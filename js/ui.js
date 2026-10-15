@@ -292,6 +292,7 @@ function home(m) {
     ${scene(m)}
     ${actions(m, 'actions-inline')}
     ${diary(m)}
+    ${m.build ? `<p class="build">${C.buildText(m.build)}</p>` : ''}
   </main>
   <nav class="bar" aria-label="действия">${actions(m, 'actions-bar')}</nav>`;
 }
@@ -677,6 +678,7 @@ export function menuSheet(m) {
     <section class="set">
       <h3>приложение</h3>
       <p class="hint">Новая версия подтягивается сама при открытии. Если что-то выглядит по-старому, обнови вручную. В приложении с домашнего экрана то же делает свайп вниз.</p>
+      ${m.build ? `<p class="hint">Сейчас стоит ${C.buildText(m.build)}.</p>` : ''}
       <button class="btn" type="button" data-act="reload" data-key="reload">обновить приложение</button>
     </section>
     <section class="set">
