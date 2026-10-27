@@ -18,6 +18,7 @@ const BASE = {
   C: '#6fd3f2', // бриллиант
   S: '#2f8fcf', // его темная грань
   V: '#8b5cf6', // гарнитура игр
+  X: '#e3342f', // красная карточка штрафа
 };
 
 // Герои и джинн нарисованы владельцем: assets/src/sheet.png, нарезка tools/sprites.mjs.
@@ -100,18 +101,19 @@ const ICONS = {
     '.K..........',
     '.KKKO.......',
   ],
+  // штраф: желтая и красная карточки, как у судьи
   penalty: [
-    '............',
-    '............',
-    '....KKK.....',
-    '...KWWWK....',
-    '...KWWWK....',
-    '...KWWWWKK..',
-    '..KWWWOWWWK.',
-    '.KWWWOWOWWWK',
-    'KWWWWWWWWWWK',
-    'KKKKKKKKKKKK',
-    '.K.K.K.K.K..',
+    '.KKKKKK.....',
+    '.KYYYYK.....',
+    '.KYYKKKKKKK.',
+    '.KYYKWXXXXK.',
+    '.KYYKWXXXXK.',
+    '.KYYKXXXXXK.',
+    '.KYYKXXXXXK.',
+    '.KKKKXXXXXK.',
+    '....KXXXXXK.',
+    '....KXXXXXK.',
+    '....KKKKKKK.',
     '............',
   ],
 };
