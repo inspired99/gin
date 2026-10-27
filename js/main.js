@@ -248,22 +248,39 @@ const actions = {
     sheetState.who = el.dataset.who === 'both' ? 'both' : Number(el.dataset.who);
     keepFocus(() => renderSheet(model()));
   },
-  'log-qty'(el) {
-    sheetState.qty = Number(el.dataset.n);
-    keepFocus(() => renderSheet(model()));
-  },
   log(el) {
-    const { day, who, qty, bad } = sheetState;
     const kind = el.dataset.kind;
+    // кальян и игры в два шага: касание по виду раскрывает выбор, касание по варианту отмечает
+    if ((kind === 'hookah' && !el.dataset.n) || (kind === 'club' && el.dataset.bad == null)) {
+      sheetState.step = sheetState.step === kind ? null : kind;
+      keepFocus(() => renderSheet(model()));
+      const choice = sheetBody.querySelector('.opt-step');
+      if (choice) choice.scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    const { day, who } = sheetState;
+    const qty = kind === 'hookah' ? Number(el.dataset.n) || 1 : 1;
+    const bad = kind === 'club' && el.dataset.bad === '1';
     let targets = who === 'both' ? [0, 1] : [who];
     // штраф отмечается только тому, за кем он числится
     if (kind === 'penalty') targets = targets.filter((w) => model().debts[w].n > 0);
     closeSheet();
-    if (targets.length) logEvents(kind, day, targets, kind === 'hookah' ? qty || 1 : 1, kind === 'club' && Boolean(bad));
+    if (targets.length) logEvents(kind, day, targets, qty, bad);
   },
-  'log-bad'(el) {
-    sheetState.bad = el.dataset.bad === '1';
-    keepFocus(() => renderSheet(model()));
+  /** Правило из настроек: да или нет. */
+  flag(el) {
+    const name = el.dataset.name;
+    if (name !== 'planRule') return;
+    store.write([{ path: `settings/${name}`, value: el.dataset.v === '1' }]);
+  },
+  /** Обнулить штрафы и уровни с сегодняшнего дня. Журнал не трогаем, поэтому это можно отменить. */
+  reset() {
+    const ok = window.confirm('Обнулить штрафы и уровни у обоих с сегодняшнего дня? Отметки и прошлые недели останутся в дневнике.');
+    if (!ok) return;
+    const was = (store.state.settings || {}).resetDay || null;
+    store.write([{ path: 'settings/resetDay', value: R.localDay() }]);
+    closeSheet();
+    toast('штрафы и уровни обнулены', () => store.write([{ path: 'settings/resetDay', value: was }]));
   },
   /** Поправить режим игр в уже сделанной записи. */
   'set-bad'(el) {

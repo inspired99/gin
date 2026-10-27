@@ -404,12 +404,12 @@ function rules(m) {
     <div class="rules-head"><h1 class="page-title">правила</h1>${prop('lantern', 76)}</div>
     <ol class="rule-list">
       ${item(icon('hookah', { scale: 3 }), 'лимит', `У каждого на неделю свой лимит кальянов и игр, он написан под комнатой: «кальян 1 из 3». ${dropRule} Лимиты можно поправить в меню.`)}
-      ${item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.')}
+      ${s.planRule ? item(chip('hookah', 'is-plan', ''), 'кальян по плану', 'День кальяна ставится в дневнике не позже чем накануне. Без плана это нарушение, даже если лимит не выбран.') : ''}
       ${item(`${chip('gym', 'is-fact', '')}${chip('hookah', 'is-missed', '')}`, 'день спорта чистый', 'Спорт или бассейн стоят в плане или уже были: кальяна в этот день нет. Сорвался: отмечаем как нарушение.')}
       ${item(navIcon('rules'), 'отмечаем все', 'Срыв тоже. Задним числом можно, скрыть нельзя.')}
     </ol>
     <ul class="rule-list">
-      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Кальян сверх лимита, вне плана или в день спорта. За каждое ${C.nPenalty(s.foulCost)}, один штраф это ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Цена не растет. Штрафы не сгорают: неотработанные переходят на следующие недели.`)}
+      ${item(chip('hookah', 'is-foul', ''), 'нарушение', `Кальян сверх лимита${s.planRule ? ', вне плана' : ''} или в день спорта. За каждое ${C.nPenalty(s.foulCost)}, один штраф это ${C.PENALTY}, срок ${C.nDays(s.penaltyDays)}. Цена не растет. Штрафы не сгорают: неотработанные переходят на следующие недели.`)}
       ${item(chip('penalty', 'is-foul', ''), 'сначала штраф', `Пока висит неотработанный штраф, кальян нельзя. Сорвался: это нарушение, и стоит каждый такой кальян ${C.nPenalty(s.debtX)}.`)}
       ${item(chip('club', 'is-foul', ''), 'игры', `При отметке выбираем режим: нормально или плохо. Плохо или сверх лимита это нарушение полегче: ${C.PENALTY_PART[s.gamesPerPenalty]}${s.gamesPerPenalty > 1 ? `, то есть один штраф за каждые ${s.gamesPerPenalty} таких` : ''}.`)}
     </ul>
@@ -454,7 +454,7 @@ function noteFor(m, kind, day, who, n = 1, bad = false) {
     case 'cowork':
       return { text: `коворкинг за неделю: ${res.week.counts.cowork[who]} из ${m.s.needCowork}` };
     case 'hookah':
-      return { text: `по плану, будет ${res.week.hearts[who].used} из ${res.week.hearts[who].max}` };
+      return { text: `${m.s.planRule ? 'по плану, ' : ''}будет ${res.week.hearts[who].used} из ${res.week.hearts[who].max}` };
     case 'club':
       return { text: `будет ${res.week.tokens[who].used} из ${res.week.tokens[who].max}` };
     default:
@@ -503,30 +503,34 @@ export function logSheet(m, sel) {
     )
     .join('');
   const targets = sel.who === 'both' ? [0, 1] : [Number(sel.who)];
-  const count = sel.qty || 1;
-  const bad = Boolean(sel.bad); // режим игр: нормально или плохо
-  const row = (kind, only) => {
-    const list = only || targets;
-    const notes = list.map((who) => ({ who, ...noteFor(m, kind, sel.day, who, kind === 'hookah' ? count : 1, kind === 'club' && bad) }));
+  // подсказка под вариантом: что будет после отметки, у каждого свое
+  const noteText = (kind, list, bad = false) => {
+    const notes = list.map((who) => ({ who, ...noteFor(m, kind, sel.day, who, 1, bad) }));
     const same = notes.every((n) => n.text === notes[0].text);
-    const text = same ? notes[0].text : notes.map((n) => `${esc(m.players[n.who].name)}: ${n.text}`).join('; ');
-    const foul = notes.some((n) => n.foul);
-    return `<button class="opt${foul ? ' is-foul' : ''}" type="button" data-act="log" data-kind="${kind}" data-key="log-${kind}">
-      <span class="opt-icon">${icon(kind, { scale: 3 })}</span>
-      <span class="opt-name">${C.KIND[kind].name}${kind === 'hookah' && count > 1 ? ` ×${count}` : ''}</span>
-      <span class="opt-note">${text}</span>
-    </button>`;
+    return { text: same ? notes[0].text : notes.map((n) => `${esc(m.players[n.who].name)}: ${n.text}`).join('; '), foul: notes.some((n) => n.foul) };
   };
-  const qtyBtns = QTY.map(
-    (n) =>
-      `<button class="seg-btn" type="button" aria-pressed="${n === count}" data-act="log-qty" data-n="${n}" data-key="log-qty-${n}" aria-label="кальянов за раз: ${n}">×${n}</button>`,
-  ).join('');
-  const modeBtns = [false, true]
-    .map(
-      (v) =>
-        `<button class="seg-btn" type="button" aria-pressed="${v === bad}" data-act="log-bad" data-bad="${v ? 1 : 0}" data-key="log-bad-${v ? 1 : 0}">${v ? 'плохо' : 'нормально'}</button>`,
-    )
-    .join('');
+  // кальян и игры отмечаются в два шага: сначала вид, потом сколько или как прошло
+  const step = (kind) => {
+    if (sel.step !== kind) return '';
+    if (kind === 'hookah') {
+      const btns = QTY.map(
+        (n) => `<button class="seg-btn" type="button" data-act="log" data-kind="hookah" data-n="${n}" data-key="log-hookah-${n}" aria-label="кальянов за вечер: ${n}">×${n}</button>`,
+      ).join('');
+      return `<div class="opt-step" role="group" aria-label="сколько кальянов за вечер"><p class="opt-step-q">сколько за вечер?</p><div class="seg seg-qty">${btns}</div></div>`;
+    }
+    const bad = noteText('club', targets, true);
+    const btn = (v) => `<button class="seg-btn" type="button" data-act="log" data-kind="club" data-bad="${v ? 1 : 0}" data-key="log-club-${v ? 1 : 0}">${v ? 'плохо' : 'нормально'}</button>`;
+    return `<div class="opt-step" role="group" aria-label="как прошли игры"><p class="opt-step-q">как прошло?</p><div class="seg">${btn(false)}${btn(true)}</div><p class="opt-step-note${bad.foul ? ' is-foul' : ''}">плохо: ${bad.text}</p></div>`;
+  };
+  const row = (kind, only) => {
+    const { text, foul } = noteText(kind, only || targets);
+    const two = kind === 'hookah' || kind === 'club';
+    return `<button class="opt${foul ? ' is-foul' : ''}" type="button" data-act="log" data-kind="${kind}" data-key="log-${kind}"${two ? ` aria-expanded="${sel.step === kind}"` : ''}>
+      <span class="opt-icon">${icon(kind, { scale: 3 })}</span>
+      <span class="opt-name">${C.KIND[kind].name}</span>
+      <span class="opt-note">${text}</span>
+    </button>${two ? step(kind) : ''}`;
+  };
   const owing = targets.filter((who) => m.debts[who].n > 0);
   const foulById = new Map(m.weeks.flatMap((w) => w.fouls).map((f) => [f.id, f]));
   const logged = m.events.filter((e) => e.day === sel.day && targets.includes(e.who));
@@ -566,8 +570,8 @@ export function logSheet(m, sel) {
     <div class="opts">
       ${row('gym')}${row('pool')}${row('cowork')}
       <div class="opts-gap" aria-hidden="true"></div>
-      <div class="opt-qty">${row('hookah')}<div class="seg seg-qty" role="group" aria-label="сколько кальянов за раз">${qtyBtns}</div></div>
-      <div class="opt-qty">${row('club')}<div class="seg" role="group" aria-label="режим игр">${modeBtns}</div></div>
+      ${row('hookah')}
+      ${row('club')}
       ${owing.length ? `<div class="opts-gap" aria-hidden="true"></div>${row('penalty', owing)}` : ''}
     </div>`;
 }
@@ -599,6 +603,16 @@ export function planSheet(m, sel) {
 }
 
 /** Строка настройки с числом: подпись слева, «меньше, значение, больше» справа. */
+/** Да или нет для правила из настроек. */
+function flagRow(label, name, value, off) {
+  const btn = (v, text) =>
+    `<button class="seg-btn" type="button" aria-pressed="${v === value}" data-act="flag" data-name="${name}" data-v="${v ? 1 : 0}" data-key="flag-${name}-${v ? 1 : 0}" ${off ? 'disabled' : ''}>${text}</button>`;
+  return `<div class="set-row">
+    <span class="set-label">${label}</span>
+    <div class="seg seg-flag" role="group" aria-label="${label}">${btn(false, 'нет')}${btn(true, 'да')}</div>
+  </div>`;
+}
+
 function numRow(label, name, value, { min, max, who = '', text = '', off = false }) {
   const key = `num-${name}${who === '' ? '' : `-${who}`}`;
   const attrs = `type="button" data-act="num" data-name="${name}" ${who === '' ? '' : `data-who="${who}"`}`;
@@ -662,6 +676,7 @@ export function menuSheet(m) {
     <section class="set">
       <h3>штраф</h3>
       <p class="hint">Один штраф это ${C.PENALTY}.</p>
+      ${flagRow('кальян без плана это нарушение', 'planRule', s.planRule, off)}
       ${numRow('нарушение с кальяном, штрафов', 'foulCost', s.foulCost, { min: 1, max: 5, off })}
       ${numRow('срок, дней', 'penaltyDays', s.penaltyDays, { min: 1, max: 14, off })}
       ${numRow('кальян при неотработанном штрафе, штрафов', 'debtX', s.debtX, { min: 1, max: 5, off })}
@@ -692,6 +707,11 @@ export function menuSheet(m) {
       <p class="hint">Новая версия подтягивается сама при открытии. Если что-то выглядит по-старому, обнови вручную. В приложении с домашнего экрана то же делает свайп вниз.</p>
       ${m.build ? `<p class="hint">Сейчас стоит ${C.buildText(m.build)}.</p>` : ''}
       <button class="btn" type="button" data-act="reload" data-key="reload">обновить приложение</button>
+    </section>
+    <section class="set">
+      <h3>начать заново</h3>
+      <p class="hint">${s.resetDay ? `Штрафы и уровни обнулены ${C.dayMonth(s.resetDay)}. Что было раньше, видно в дневнике, но не считается.` : 'Обнулить штрафы и уровни у обоих с сегодняшнего дня. Отметки и прошлые недели останутся в дневнике.'}</p>
+      <button class="btn" type="button" data-act="reset" data-key="reset" ${readOnly}>обнулить штрафы и уровни</button>
     </section>
     <section class="set">
       <h3>журнал</h3>

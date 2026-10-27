@@ -23,7 +23,8 @@ const day = (n) => addDays(START, n);
 let seq = 0;
 function make({ settings = {}, events = [], plans = [] } = {}) {
   const state = {
-    settings: { start: START, createdDay: '2026-10-11', ...settings },
+    // в тестах правило плана включено: на нем построена большая часть проверок нарушений
+    settings: { start: START, createdDay: '2026-10-11', planRule: true, ...settings },
     events: {},
     plan: {},
   };
@@ -515,6 +516,38 @@ test('пороги из настроек: цена нарушения, неде�
   // лимит падает после одной недели на два бриллианта и больше
   const drop = make({ settings: { dropWeeks: 1, dropGems: 2 } });
   assert.deepEqual(timeline(drop, day(15)).map((w) => w.limit[0]), [4, 3, 2]);
+});
+
+test('по умолчанию кальян без плана не нарушение: только сверх лимита и в день спорта', () => {
+  const free = (events) => make({ settings: { planRule: false }, events });
+  assert.equal(timeline(free([[0, 'hookah', day(1)]]), day(2))[0].fouls.length, 0);
+  // пятый при лимите 4 и кальян в день спорта остаются нарушениями
+  const over = free([0, 1, 2, 3, 4].map((d) => [0, 'hookah', day(d)]));
+  assert.deepEqual(timeline(over, day(5))[0].fouls.map((f) => f.reasons.join('+')), ['over']);
+  const gymday = free([[0, 'gym', day(1)], [0, 'hookah', day(1)]]);
+  assert.deepEqual(timeline(gymday, day(2))[0].fouls[0].reasons, ['gymday']);
+  // и правило по умолчанию действительно выключено
+  const plain = { settings: { start: START, createdDay: '2026-10-11' }, events: { a: { id: 'a', who: 0, kind: 'hookah', day: day(1), at: 1 } } };
+  assert.equal(timeline(plain, day(2))[0].fouls.length, 0);
+});
+
+test('обнуление: штрафы до дня обнуления прощены, уровень считается заново, история видна', () => {
+  const clubs3 = (from) => [0, 1, 2].map((d) => [0, 'club', day(from + d)]); // ноль бриллиантов
+  const events = [[0, 'hookah', day(0)], [0, 'hookah', day(1)], ...clubs3(0), ...clubs3(7), [0, 'hookah', day(15)]];
+  const before = make({ events });
+  const was = timeline(before, day(16));
+  assert.ok(debtInfo(before, was, 0, day(16)).n > 0);
+  assert.ok(level(was, 0) < 0);
+
+  const after = make({ settings: { resetDay: day(15) }, events });
+  const weeks = timeline(after, day(16));
+  assert.equal(debtInfo(after, weeks, 0, day(16)).n, 1); // кальян в день обнуления уже считается: вне плана
+  assert.equal(level(weeks, 0), 0);
+  assert.ok(weeks[0].fouls.length > 0 && weeks[0].fouls.every((f) => f.forgiven)); // нарушения видны, но прощены
+  assert.deepEqual(weeks.slice(0, 2).map((w) => w.lvlDown[0]), [false, false]);
+  // штраф, отработанный до обнуления, в зачет не идет
+  const paidEarly = make({ settings: { resetDay: day(15) }, events: [[0, 'penalty', day(3)], [0, 'hookah', day(15)]] });
+  assert.equal(debtInfo(paidEarly, timeline(paidEarly, day(16)), 0, day(16)).n, 1);
 });
 
 test('лимиты из настроек: стартовые и на конкретную неделю, каждому свои', () => {

@@ -1527,6 +1527,46 @@ ol.rule-list .rule h2::before {
   gap: var(--s2);
 }
 
+/* второй шаг отметки: сколько кальянов или как прошли игры, раскрывается под вариантом */
+.opt-step {
+  display: grid;
+  gap: var(--s2);
+  margin: calc(-1 * var(--s1)) 0 var(--s1);
+  padding: var(--s3);
+  border: 2px solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 var(--r-btn) var(--r-btn);
+  background: var(--white);
+}
+
+.opt-step-q {
+  font-weight: 600;
+}
+
+.opt-step .seg {
+  margin-top: 0;
+}
+
+.opt-step-note {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.opt-step-note.is-foul {
+  color: var(--pen);
+}
+
+.opt[aria-expanded='true'] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* да или нет в меню */
+.seg-flag {
+  flex-wrap: nowrap;
+  margin-top: 0;
+}
+
 .opt-qty .seg {
   margin: 0 0 var(--s1);
 }

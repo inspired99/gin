@@ -108,6 +108,7 @@ export function demoState(today) {
       baseline: 5,
       levelStart: 4,
       clubStart: 3,
+      planRule: true,
     },
     events,
     plan,

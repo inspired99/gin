@@ -125,7 +125,7 @@ export const SHOUT = {
   paid: { tone: 'good', say: ['долг закрыт!'] },
   'paid-part': { tone: 'good', say: ['минус штраф!'] },
   late: { tone: 'calm', say: ['лучше, чем ничего'] },
-  'hookah-ok': { tone: 'calm', say: ['по плану'] },
+  'hookah-ok': { tone: 'calm', say: ['в лимите'] },
   treat: { tone: 'calm', say: ['приятного покура!'] },
   'club-ok': { tone: 'calm', say: ['катка засчитана'] },
   foul: { tone: 'bad', say: ['нарушение!'] },

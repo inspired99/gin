@@ -13,6 +13,10 @@ export const DEFAULTS = {
   penaltyDays: 2,
   // игры: нарушение полегче, один штраф набегает за столько нарушений
   gamesPerPenalty: 2,
+  // кальян без плана считается нарушением, только если включено: по умолчанию дневник трекер, а не планер
+  planRule: false,
+  // с этого дня штрафы и уровни считаются заново: раньше все прощено, история остается
+  resetDay: '',
   // цена нарушения с кальяном, в штрафах
   foulCost: 1,
   // кальян, пока висит неотработанный штраф: нарушение, и стоит оно столько штрафов
@@ -102,6 +106,8 @@ export function normalize(settings) {
   s.limitSet = s.limitSet || {};
   s.penaltyDays = clampInt(s.penaltyDays, 1, 14);
   s.gamesPerPenalty = clampInt(s.gamesPerPenalty, 1, 5);
+  s.planRule = s.planRule === true;
+  s.resetDay = typeof s.resetDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s.resetDay) ? s.resetDay : '';
   s.foulCost = clampInt(s.foulCost, 1, 5);
   s.debtX = clampInt(s.debtX, 1, 5);
   s.dropWeeks = clampInt(s.dropWeeks, 1, 8);
@@ -214,7 +220,7 @@ function summarize(ctx) {
       if (e.day < w || e.day > end) return;
       const reasons = [];
       if (used > rung.n) reasons.push('over');
-      if (!hasHookahPlan(plans, s, who, e.day)) reasons.push('unplanned');
+      if (s.planRule && !hasHookahPlan(plans, s, who, e.day)) reasons.push('unplanned');
       if (isSportDay(mine, plans, who, e.day)) reasons.push('gymday');
       // кальян без нарушений тоже идет в список: он станет нарушением, если в этот момент висит штраф
       list.push({ id: e.id, who, day: e.day, at: e.at, kind: 'hookah', reasons });
@@ -229,11 +235,14 @@ function summarize(ctx) {
     // Счет идет в долях: в одном штрафе unit долей. Нарушение в играх это одна доля.
     // Кальян: нарушение стоит foulCost штрафов, цена не растет.
     // Пока висит целый неотработанный штраф, любой кальян это нарушение ценой debtX штрафов.
-    const penalties = mine.filter((e) => e.kind === 'penalty');
+    // штрафы, отработанные до обнуления, не в счет: долгов до него тоже нет
+    const penalties = mine.filter((e) => e.kind === 'penalty' && !(s.resetDay && e.day < s.resetDay));
     const paidBefore = (f) => penalties.filter((p) => p.day < f.day || (p.day === f.day && (p.at || 0) < (f.at || 0))).length * unit;
     for (const f of list.sort(byTime)) {
+      // до обнуления нарушение остается видно в дневнике, но штраф за него прощен
+      const forgiven = Boolean(s.resetDay) && f.day < s.resetDay;
       if (!f.light) {
-        const inDebt = owed[who] - paidBefore(f) >= unit;
+        const inDebt = !forgiven && owed[who] - paidBefore(f) >= unit;
         if (inDebt) f.reasons.push('debt');
         if (!f.reasons.length) continue;
         f.cost = inDebt ? s.debtX : s.foulCost;
@@ -242,12 +251,16 @@ function summarize(ctx) {
         f.cost = 0;
         f.units = 1;
       }
+      if (forgiven) {
+        f.forgiven = true;
+        f.units = 0;
+      }
       wk.fouls.push(f);
       owed[who] += f.units;
     }
 
     // долг: все начисленное к концу этой недели минус отработанное к сроку
-    const paid = events.filter((e) => e.kind === 'penalty' && e.who === who && e.day <= through).length;
+    const paid = events.filter((e) => e.kind === 'penalty' && e.who === who && e.day <= through && !(s.resetDay && e.day < s.resetDay)).length;
     const debt = Math.floor(Math.max(0, owed[who] - paid * unit) / unit);
 
     wk.level.push(levels[who]);
@@ -319,9 +332,13 @@ export function timeline(state, today, opts = {}) {
     if (!closed) continue;
     // срок штрафов этой недели еще не вышел: про долг судить рано
     const graceOver = addDays(end, s.penaltyDays) < today;
+    // недели до обнуления уровень не двигают: он считается заново с недели обнуления
+    const counts = !s.resetDay || w >= weekOf(s.resetDay);
     for (const who of [0, 1]) {
       const bad = wk.gems[who] <= s.lvlDownGems || (graceOver && wk.debt[who] > 0);
-      if (bad) {
+      if (!counts) {
+        // уровень до обнуления не считаем
+      } else if (bad) {
         runs[who] = 0;
         badRuns[who] += 1;
         if (badRuns[who] >= s.lvlDownWeeks && lvls[who] > -s.lvlMax) {
@@ -359,7 +376,7 @@ export function level(weeks, who) {
 export function debtInfo(state, weeks, who, today) {
   const s = normalize(state.settings);
   const unit = s.gamesPerPenalty; // долей в одном штрафе
-  let paid = live(state.events).filter((e) => e.kind === 'penalty' && e.who === who && e.day <= today).length * unit;
+  let paid = live(state.events).filter((e) => e.kind === 'penalty' && e.who === who && e.day <= today && !(s.resetDay && e.day < s.resetDay)).length * unit;
   let rest = 0;
   let since = null;
   for (const wk of weeks) {

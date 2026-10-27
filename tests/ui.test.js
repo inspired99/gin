@@ -85,10 +85,14 @@ test('отметить за любой день: сетка месяца, буд
   assert.doesNotMatch(open, /undefined|NaN|\[object Object\]/);
 });
 
-test('число кальянов: от одного до шести, у записи его можно поправить', () => {
+test('кальян в два шага: сначала вид, потом ×1..×6; у записи число правится', () => {
   const day = addDays(TODAY, -5); // вторник, у Елисея кальян
   const html = UI.logSheet(model({}), { day, who: 0 });
-  assert.equal(html.split('data-act="log-qty"').length - 1, 6);
+  assert.doesNotMatch(html, /data-kind="hookah" data-n=/); // выбор числа еще не раскрыт
+  assert.match(html, /data-kind="hookah" data-key="log-hookah" aria-expanded="false"/);
+  const open = UI.logSheet(model({}), { day, who: 0, step: 'hookah' });
+  assert.equal(open.split('data-kind="hookah" data-n=').length - 1, 6);
+  assert.match(open, /aria-expanded="true"/);
   assert.equal(html.split('data-act="set-qty"').length - 1, 6);
   assert.match(html, /data-act="set-qty"[^>]*data-n="6"/);
   assert.ok(html.indexOf('class="logged"') < html.indexOf('class="opts"')); // записанное стоит над вариантами
@@ -96,13 +100,13 @@ test('число кальянов: от одного до шести, у зап�
 
 test('игры: режим выбирается при отметке и правится у записи', () => {
   const html = UI.logSheet(model({}), { day: '2026-10-04', who: 0 }); // у Елисея в этот день игры
-  assert.equal(html.split('data-act="log-bad"').length - 1, 2);
+  assert.doesNotMatch(html, /data-kind="club" data-bad=/); // режим выбирается вторым шагом
   assert.equal(html.split('data-act="set-bad"').length - 1, 2);
-  assert.match(html, /data-act="log-bad" data-bad="0"[^>]*>нормально</);
-  // выбрано «плохо»: под играми видно, что это нарушение полегче
-  const bad = UI.logSheet(model({}), { day: TODAY, who: 0, bad: true });
-  assert.match(bad, /aria-pressed="true" data-act="log-bad" data-bad="1"/);
-  assert.match(bad, /плохой режим[^<]*полштрафа/);
+  // раскрыли игры: два варианта и подсказка, что «плохо» это нарушение полегче
+  const open = UI.logSheet(model({}), { day: TODAY, who: 0, step: 'club' });
+  assert.match(open, /data-kind="club" data-bad="0"[^>]*>нормально</);
+  assert.match(open, /data-kind="club" data-bad="1"[^>]*>плохо</);
+  assert.match(open, /плохо: нарушение: плохой режим[^<]*полштрафа/);
 });
 
 test('версия сайта видна внизу главной и в меню, а у себя на машине ее нет', () => {
@@ -131,6 +135,15 @@ test('общий дневник: без ссылок и кодов, другой
   assert.match(menu, /один на двоих/);
   assert.doesNotMatch(menu, /data-act="leave"/);
   assert.doesNotMatch(UI.welcome({ startDay: '2026-10-12', local: false, fixed: true }), /id="join"/);
+});
+
+test('меню: правило плана и обнуление', () => {
+  const menu = UI.menuSheet(model({}));
+  assert.match(menu, /data-act="flag" data-name="planRule" data-v="1"/);
+  assert.match(menu, /data-act="reset"/);
+  const after = { ...demoState(TODAY) };
+  after.settings = { ...after.settings, resetDay: '2026-10-20' };
+  assert.match(UI.menuSheet(buildModel(after, TODAY, { me: 0, kind: 'demo' })), /обнулены 20 октября/);
 });
 
 test('первый запуск, выбор персонажа, загрузка', () => {
