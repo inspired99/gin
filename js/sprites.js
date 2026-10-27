@@ -17,6 +17,7 @@ const BASE = {
   Y: '#f5c542',
   C: '#6fd3f2', // бриллиант
   S: '#2f8fcf', // его темная грань
+  V: '#8b5cf6', // гарнитура игр
 };
 
 // Герои и джинн нарисованы владельцем: assets/src/sheet.png, нарезка tools/sprites.mjs.
@@ -84,19 +85,20 @@ const ICONS = {
     '....KBBBBK..',
     '...KKKKKKKK.',
   ],
+  // игры: игровая гарнитура с микрофоном
   club: [
-    '............',
-    '............',
-    '..KKKKKKKK..',
-    '.KWWWWWWWWK.',
-    'KWWKWWWWRWWK',
-    'KWKKKWWRWRWK',
-    'KWWKWWWWRWWK',
-    'KWWWKKKKWWWK',
-    'KWWK....KWWK',
-    '.KK......KK.',
-    '............',
-    '............',
+    '....KKKK....',
+    '..KKVVVVKK..',
+    '.KVVKKKKVVK.',
+    '.KVK....KVK.',
+    'KVK......KVK',
+    'KKKK....KKKK',
+    'KVVK....KVVK',
+    'KVVK....KVVK',
+    'KVVK....KVVK',
+    'KKKK....KKKK',
+    '.K..........',
+    '.KKKO.......',
   ],
   penalty: [
     '............',
